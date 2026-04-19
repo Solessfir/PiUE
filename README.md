@@ -4,6 +4,9 @@ Blender-style radial quick-action menu for the Unreal Engine level editor viewpo
 
 ![Editor Screenshot](Resources/Screenshot.png)
 
+### Installation
+Get `PiUE.zip` from the [releases](https://github.com/Solessfir/PiUE/releases) and extract it into your project's `Plugins` folder.
+
 ## Usage
 
 Press **V** (or **Mouse 4**) while the level viewport has focus to open the menu. **Tap** (< `TapThresholdMs`) leaves the menu open — click a wedge or press again to close. **Hold** (≥ `TapThresholdMs`) executes the highlighted wedge on release. Move the cursor away from center to highlight a wedge; stay in the dead zone to close without acting.
