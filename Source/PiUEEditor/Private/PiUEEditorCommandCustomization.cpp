@@ -49,6 +49,7 @@ void FPiUEEditorCommandCustomization::CustomizeHeader(TSharedRef<IPropertyHandle
 			[
 				SNew(STextBlock)
 				.Text(this, &FPiUEEditorCommandCustomization::GetSelectedCommandLabel)
+				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
 				.OverflowPolicy(ETextOverflowPolicy::Ellipsis)
 			]
 		]
