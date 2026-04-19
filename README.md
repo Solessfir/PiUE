@@ -60,7 +60,8 @@ All item types share these base properties:
 |----------|-------------|
 | **Label** | Text shown on the wedge. Keep short. |
 | **Icon** | Optional icon drawn beside the label. |
-| **Tint Override** | Per-item background color. Leave alpha 0 to use the theme default. |
+| **Icon Tint** | Tint applied to the icon. White = no tint. |
+| **Background Tint** | Overrides the wedge background color. Unset = use theme default. |
 | **Bold** | Renders the label in bold. |
 
 ### Editor Command
