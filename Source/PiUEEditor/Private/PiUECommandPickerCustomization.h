@@ -21,7 +21,7 @@ struct FPiUECommandPickerNode
 	bool IsCommand() const { return Command.IsValid(); }
 };
 
-class FPiUEEditorCommandCustomization final : public IPropertyTypeCustomization
+class FPiUECommandPickerCustomization final : public IPropertyTypeCustomization
 {
 public:
 	static TSharedRef<IPropertyTypeCustomization> MakeInstance();

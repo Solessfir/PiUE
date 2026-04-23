@@ -1,7 +1,7 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
 #include "SPiUERadialMenu.h"
-#include "Engine/Texture2D.h"
+#include "Brushes/SlateImageBrush.h"
 #include "Framework/Application/SlateApplication.h"
 #include "StructUtils/InstancedStruct.h"
 #include "PiUEActionDispatcher.h"
@@ -70,7 +70,7 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 
 	Panel->ClearChildren();
 	Wedges.Reset();
-	WedgeBrushes.Reset();
+	DynamicBrushes.Reset();
 	HoveredIndex = INDEX_NONE;
 	bArcActive = false;
 	ArcDisplayAlpha = 0.f;
@@ -80,10 +80,7 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
 	const TArray<FInstancedStruct>& Items = *NavStack.Top();
-	const bool bInSubcategory = NavStack.Num() > 1;
-
-	WedgeBrushes.Reserve(Items.Num());
-	Panel->SetHasBackSlot(bInSubcategory);
+	DynamicBrushes.Reserve(Items.Num());
 
 	for (const FInstancedStruct& Item : Items)
 	{
@@ -96,39 +93,32 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 		const FPiUEMenuItemBase& Base = Item.Get<FPiUEMenuItemBase>();
 		const FLinearColor BaseTint = Base.BackgroundTint.IsSet() ? Base.BackgroundTint.GetValue() : Settings->DefaultWedgeTint;
 
-		FSlateBrush& IconBrush = WedgeBrushes.AddDefaulted_GetRef();
-		if (!Base.Icon.IsNull())
+		const FSlateBrush* IconBrushPtr = nullptr;
+		if (!Base.Icon.Path.IsEmpty())
 		{
-			if (UTexture2D* Tex = Base.Icon.LoadSynchronous())
+			TUniquePtr<FSlateBrush> Brush;
+			if (Base.Icon.Path.EndsWith(TEXT(".svg"), ESearchCase::IgnoreCase))
 			{
-				IconBrush.SetResourceObject(Tex);
-				IconBrush.ImageSize = FVector2D(18.f, 18.f);
-				IconBrush.TintColor = FSlateColor(Base.IconTint);
+				Brush = MakeUnique<FSlateVectorImageBrush>(Base.Icon.Path, FVector2D(18.f, 18.f));
 			}
+			else
+			{
+				Brush = MakeUnique<FSlateDynamicImageBrush>(FName(*Base.Icon.Path), FVector2D(18.f, 18.f));
+			}
+			IconBrushPtr = Brush.Get();
+			DynamicBrushes.Add(MoveTemp(Brush));
 		}
 
 		TSharedPtr<SPiUEWedge> Wedge;
 		Panel->AddSlot()
 		[
 			SAssignNew(Wedge, SPiUEWedge)
-			.Icon(&IconBrush)
+			.Icon(IconBrushPtr)
 			.Label(Base.Label)
 			.BaseTint(BaseTint)
 			.bBold(Base.bBold)
 		];
 		Wedges.Add(Wedge);
-	}
-
-	if (bInSubcategory)
-	{
-		TSharedPtr<SPiUEWedge> BackWedge;
-		Panel->AddSlot()
-		[
-			SAssignNew(BackWedge, SPiUEWedge)
-			.Label(LOCTEXT("BackButton", "Back"))
-			.BaseTint(Settings->DefaultWedgeTint)
-		];
-		Wedges.Add(BackWedge);
 	}
 
 	for (int32 i = 0; i < Wedges.Num(); ++i)
@@ -206,12 +196,6 @@ void SPiUERadialMenu::TryExecuteHoveredAction()
 		return;
 	}
 
-	// Back button is last slot in a subcategory - not an action.
-	if (NavStack.Num() > 1 && HoveredIndex == Wedges.Num() - 1)
-	{
-		return;
-	}
-
 	const TArray<FInstancedStruct>& Items = *NavStack.Top();
 	if (!Items.IsValidIndex(HoveredIndex))
 	{
@@ -221,7 +205,7 @@ void SPiUERadialMenu::TryExecuteHoveredAction()
 	const FInstancedStruct& Item = Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
 
-	if (Type != nullptr && Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
+	if (Type != nullptr && (Type->IsChildOf(FPiUECloseItem::StaticStruct()) || Type->IsChildOf(FPiUECategoryItem::StaticStruct())))
 	{
 		return;
 	}
@@ -242,10 +226,25 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 		return;
 	}
 
-	// Back button: last slot in a subcategory.
-	const bool bIsBackButton = NavStack.Num() > 1 && HoveredIndex == Wedges.Num() - 1;
-	if (bIsBackButton)
+	const TArray<FInstancedStruct>& Items = *NavStack.Top();
+	if (!Items.IsValidIndex(HoveredIndex))
 	{
+		return;
+	}
+
+	const FInstancedStruct& Item = Items[HoveredIndex];
+	const UScriptStruct* Type = Item.GetScriptStruct();
+	if (Type == nullptr)
+	{
+		return;
+	}
+
+	if (Type->IsChildOf(FPiUECloseItem::StaticStruct()))
+	{
+		if (NavStack.Num() <= 1)
+		{
+			return;
+		}
 		CategoryHoverAccum += DeltaTime;
 		if (CategoryHoverAccum >= GetDefault<UPiUESettings>()->CategoryHoverMs / 1000.0)
 		{
@@ -260,15 +259,7 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 		return;
 	}
 
-	const TArray<FInstancedStruct>& Items = *NavStack.Top();
-	if (!Items.IsValidIndex(HoveredIndex))
-	{
-		return;
-	}
-
-	const FInstancedStruct& Item = Items[HoveredIndex];
-	const UScriptStruct* Type = Item.GetScriptStruct();
-	if (Type == nullptr || !Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
+	if (!Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
 	{
 		return;
 	}
@@ -300,12 +291,6 @@ bool SPiUERadialMenu::ConfirmSelection()
 		return true;
 	}
 
-	// Back wedge is the last slot when in a subcategory.
-	if (NavStack.Num() > 1 && HoveredIndex == Wedges.Num() - 1)
-	{
-		return NavigateBack();
-	}
-
 	const TArray<FInstancedStruct>& Items = *NavStack.Top();
 	if (!Items.IsValidIndex(HoveredIndex))
 	{
@@ -314,6 +299,11 @@ bool SPiUERadialMenu::ConfirmSelection()
 
 	const FInstancedStruct& Item = Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
+
+	if (Type != nullptr && Type->IsChildOf(FPiUECloseItem::StaticStruct()))
+	{
+		return NavigateBack();
+	}
 
 	if (Type != nullptr && Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
 	{

@@ -8,8 +8,7 @@
 
 /**
  * Lays out child widgets radially around a center point (angle from "up", clockwise).
- *  Normal: N == 1: [Top], N == 2: [Right, Left], N == 3: [Top, BR, BL], N == 4: cardinal, N >= 5: equal step
- *  Back-slot mode: last slot fixed at PI (6 o'clock); remaining N-1 slots arc evenly centered at top.
+ *  N == 1: [Top], N == 2: [Right, Left], N == 3: [Top, BR, BL], N == 4: cardinal, N >= 5: equal step
  */
 class SPiUERadialPanel : public SPanel
 {
@@ -47,25 +46,22 @@ public:
 	void ClearChildren();
 
 	/** Sets the ring radius in local-space pixels. */
-	void SetRadius(float InRadius);
-
-	/** When true, last slot is fixed at PI (6 o'clock) as a back button. Triggers layout invalidation. */
-	void SetHasBackSlot(bool bValue);
+	void SetRadius(const float InRadius);
 
 	/** Updates the animated arc. InAlpha 0=hidden 1=full; InAngle is radians (0=up, clockwise). */
-	void UpdateArc(float InAlpha, float InAngle);
+	void UpdateArc(const float InAlpha, const float InAngle);
 
 	/** Returns the center angle (radians, 0=up, CW) for the given slot index. */
-	float GetSlotAngle(int32 SlotIndex) const;
+	float GetSlotAngle(const int32 SlotIndex) const;
 
 	/**
 	 * Returns the slot index for a cursor delta (cursor minus menu center, in screen space). INDEX_NONE if inside dead zone.
 	 * Does not use cached geometry - safe to call before first layout pass.
 	 */
-	int32 GetSlotAtDelta(const FVector2D& CursorDelta, float DeadZoneRadius) const;
+	int32 GetSlotAtDelta(const FVector2D& CursorDelta, const float DeadZoneRadius) const;
 
 	/** Computes the local-space anchor point for a given slot index (used for hit-testing and painting). */
-	FVector2D GetSlotAnchor(int32 SlotIndex) const;
+	FVector2D GetSlotAnchor(const int32 SlotIndex) const;
 
 	// Begin SWidget interface
 	virtual FVector2D ComputeDesiredSize(float) const override;
@@ -75,12 +71,11 @@ public:
 	// End SWidget interface
 
 private:
-	static float ComputeSlotAngle(int32 SlotIndex, int32 SlotCount, bool bHasBackSlot);
+	static float ComputeSlotAngle(const int32 SlotIndex, const int32 SlotCount);
 
 	TPanelChildren<FSlot> Children;
 	float Radius = 120.f;
 	float ArcAngle = 0.f;
 	float ArcAlpha = 0.f;
-	bool bHasBackSlot = false;
 	FLinearColor HighlightColor = FLinearColor(0.1f, 0.5f, 0.9f, 0.95f);
 };

@@ -8,7 +8,16 @@
 
 class UEditorUtilityBlueprint;
 class UEditorUtilityWidgetBlueprint;
-class UTexture2D;
+
+/** Wrapper for a path to a Slate SVG icon. Displayed via a visual picker in the editor. */
+USTRUCT(BlueprintType)
+struct PIUE_API FPiUEIconPath
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "PiUE")
+	FString Path;
+};
 
 /**
  * Base class for all pie menu items. Subclass via USTRUCT and add via FInstancedStruct.
@@ -23,13 +32,9 @@ struct PIUE_API FPiUEMenuItemBase
 	UPROPERTY(EditAnywhere, Category = "PiUE")
 	FText Label;
 
-	/** Optional icon drawn beside the label. Leave null to skip the icon slot. */
+	/** Optional icon drawn beside the label. Select a Slate SVG via the icon picker. */
 	UPROPERTY(EditAnywhere, Category = "PiUE")
-	TSoftObjectPtr<UTexture2D> Icon;
-
-	/** Tint applied to the icon. White = no tint. */
-	UPROPERTY(EditAnywhere, Category = "PiUE|Style")
-	FLinearColor IconTint = FLinearColor::White;
+	FPiUEIconPath Icon;
 
 	/** Overrides the wedge background color. Unset = use theme default. */
 	UPROPERTY(EditAnywhere, Category = "PiUE|Style")
@@ -96,6 +101,16 @@ struct PIUE_API FPiUEEditorUtilityObjectItem : public FPiUEMenuItemBase
 	/** Editor Utility Object Blueprint to instantiate and run when the wedge is selected. */
 	UPROPERTY(EditAnywhere, Meta = (DisplayThumbnail = false, DisplayAfter = "Label"), Category = "PiUE")
 	TSoftObjectPtr<UEditorUtilityBlueprint> Object;
+};
+
+/**
+* Closes the current level of the pie menu. At root: closes the menu. In a sub-ring: navigates back one level.
+* Place this anywhere in a Children array to control its wedge position.
+*/
+USTRUCT(BlueprintType, DisplayName = "Close")
+struct PIUE_API FPiUECloseItem : public FPiUEMenuItemBase
+{
+	GENERATED_BODY()
 };
 
 /**

@@ -1,6 +1,6 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
-#include "PiUEEditorCommandCustomization.h"
+#include "PiUECommandPickerCustomization.h"
 #include "PiUETypes.h"
 #include "DetailWidgetRow.h"
 #include "Framework/Commands/InputBindingManager.h"
@@ -15,7 +15,7 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/STableRow.h"
 
-#define LOCTEXT_NAMESPACE "PiUEEditorCommandCustomization"
+#define LOCTEXT_NAMESPACE "PiUECommandPickerCustomization"
 
 namespace
 {
@@ -24,12 +24,12 @@ namespace
 	constexpr float MenuHeight = 500.f;
 }
 
-TSharedRef<IPropertyTypeCustomization> FPiUEEditorCommandCustomization::MakeInstance()
+TSharedRef<IPropertyTypeCustomization> FPiUECommandPickerCustomization::MakeInstance()
 {
-	return MakeShared<FPiUEEditorCommandCustomization>();
+	return MakeShared<FPiUECommandPickerCustomization>();
 }
 
-void FPiUEEditorCommandCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InStructPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
+void FPiUECommandPickerCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InStructPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
 	CommandContextHandle = InStructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FPiUEEditorCommandItem, CommandContext));
 	CommandNameHandle = InStructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FPiUEEditorCommandItem, CommandName));
@@ -43,12 +43,12 @@ void FPiUEEditorCommandCustomization::CustomizeHeader(TSharedRef<IPropertyHandle
 		.WidthOverride(PickerButtonWidth)
 		[
 			SAssignNew(CommandComboButton, SComboButton)
-			.OnGetMenuContent(this, &FPiUEEditorCommandCustomization::BuildMenuContent)
-			.ToolTipText(this, &FPiUEEditorCommandCustomization::GetSelectedCommandTooltip)
+			.OnGetMenuContent(this, &FPiUECommandPickerCustomization::BuildMenuContent)
+			.ToolTipText(this, &FPiUECommandPickerCustomization::GetSelectedCommandTooltip)
 			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(this, &FPiUEEditorCommandCustomization::GetSelectedCommandLabel)
+				.Text(this, &FPiUECommandPickerCustomization::GetSelectedCommandLabel)
 				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
 				.OverflowPolicy(ETextOverflowPolicy::Ellipsis)
 			]
@@ -56,7 +56,7 @@ void FPiUEEditorCommandCustomization::CustomizeHeader(TSharedRef<IPropertyHandle
 	];
 }
 
-void FPiUEEditorCommandCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InStructPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
+void FPiUECommandPickerCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InStructPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
 	uint32 NumChildren = 0;
 	InStructPropertyHandle->GetNumChildren(NumChildren);
@@ -76,7 +76,7 @@ void FPiUEEditorCommandCustomization::CustomizeChildren(TSharedRef<IPropertyHand
 	}
 }
 
-void FPiUEEditorCommandCustomization::BuildAllNodes()
+void FPiUECommandPickerCustomization::BuildAllNodes()
 {
 	AllRootNodes.Reset();
 
@@ -124,7 +124,7 @@ void FPiUEEditorCommandCustomization::BuildAllNodes()
 	}
 }
 
-void FPiUEEditorCommandCustomization::RebuildVisibleRoots()
+void FPiUECommandPickerCustomization::RebuildVisibleRoots()
 {
 	VisibleRootNodes.Reset();
 
@@ -174,7 +174,7 @@ void FPiUEEditorCommandCustomization::RebuildVisibleRoots()
 	}
 }
 
-TSharedRef<SWidget> FPiUEEditorCommandCustomization::BuildMenuContent()
+TSharedRef<SWidget> FPiUECommandPickerCustomization::BuildMenuContent()
 {
 	SearchText = FText::GetEmpty();
 	BuildAllNodes();
@@ -190,7 +190,7 @@ TSharedRef<SWidget> FPiUEEditorCommandCustomization::BuildMenuContent()
 		.Padding(4.f)
 		[
 			SAssignNew(SearchBox, SSearchBox)
-			.OnTextChanged(this, &FPiUEEditorCommandCustomization::OnSearchTextChanged)
+			.OnTextChanged(this, &FPiUECommandPickerCustomization::OnSearchTextChanged)
 		]
 		+ SVerticalBox::Slot()
 		.FillHeight(1.f)
@@ -198,15 +198,15 @@ TSharedRef<SWidget> FPiUEEditorCommandCustomization::BuildMenuContent()
 		[
 			SAssignNew(TreeView, STreeView<TSharedPtr<FPiUECommandPickerNode>>)
 			.TreeItemsSource(&VisibleRootNodes)
-			.OnGenerateRow(this, &FPiUEEditorCommandCustomization::OnGenerateRow)
-			.OnGetChildren(this, &FPiUEEditorCommandCustomization::OnGetChildren)
-			.OnSelectionChanged(this, &FPiUEEditorCommandCustomization::OnTreeSelectionChanged)
+			.OnGenerateRow(this, &FPiUECommandPickerCustomization::OnGenerateRow)
+			.OnGetChildren(this, &FPiUECommandPickerCustomization::OnGetChildren)
+			.OnSelectionChanged(this, &FPiUECommandPickerCustomization::OnTreeSelectionChanged)
 			.SelectionMode(ESelectionMode::Single)
 		]
 	];
 }
 
-TSharedRef<ITableRow> FPiUEEditorCommandCustomization::OnGenerateRow(TSharedPtr<FPiUECommandPickerNode> InNode, const TSharedRef<STableViewBase>& InOwnerTable)
+TSharedRef<ITableRow> FPiUECommandPickerCustomization::OnGenerateRow(TSharedPtr<FPiUECommandPickerNode> InNode, const TSharedRef<STableViewBase>& InOwnerTable)
 {
 	const bool bIsCommand = InNode->IsCommand();
 	const FText RowText = bIsCommand ? InNode->Command->GetLabel() : GetContextDisplayText(InNode->Context);
@@ -262,7 +262,7 @@ TSharedRef<ITableRow> FPiUEEditorCommandCustomization::OnGenerateRow(TSharedPtr<
 	];
 }
 
-void FPiUEEditorCommandCustomization::OnGetChildren(TSharedPtr<FPiUECommandPickerNode> InNode, TArray<TSharedPtr<FPiUECommandPickerNode>>& OutChildren)
+void FPiUECommandPickerCustomization::OnGetChildren(TSharedPtr<FPiUECommandPickerNode> InNode, TArray<TSharedPtr<FPiUECommandPickerNode>>& OutChildren)
 {
 	if (InNode.IsValid())
 	{
@@ -270,7 +270,7 @@ void FPiUEEditorCommandCustomization::OnGetChildren(TSharedPtr<FPiUECommandPicke
 	}
 }
 
-void FPiUEEditorCommandCustomization::OnTreeSelectionChanged(TSharedPtr<FPiUECommandPickerNode> InNode, ESelectInfo::Type InSelectInfo)
+void FPiUECommandPickerCustomization::OnTreeSelectionChanged(TSharedPtr<FPiUECommandPickerNode> InNode, ESelectInfo::Type InSelectInfo)
 {
 	if (InSelectInfo == ESelectInfo::Direct)
 	{
@@ -291,13 +291,13 @@ void FPiUEEditorCommandCustomization::OnTreeSelectionChanged(TSharedPtr<FPiUECom
 	}
 }
 
-void FPiUEEditorCommandCustomization::OnSearchTextChanged(const FText& InText)
+void FPiUECommandPickerCustomization::OnSearchTextChanged(const FText& InText)
 {
 	SearchText = InText;
 	RebuildVisibleRoots();
 }
 
-FText FPiUEEditorCommandCustomization::GetSelectedCommandLabel() const
+FText FPiUECommandPickerCustomization::GetSelectedCommandLabel() const
 {
 	FName ContextName;
 	FName CommandName;
@@ -319,7 +319,7 @@ FText FPiUEEditorCommandCustomization::GetSelectedCommandLabel() const
 	return FText::Format(LOCTEXT("MissingCommandFmt", "{0} (missing)"), FText::FromName(CommandName));
 }
 
-FText FPiUEEditorCommandCustomization::GetSelectedCommandTooltip() const
+FText FPiUECommandPickerCustomization::GetSelectedCommandTooltip() const
 {
 	FName ContextName;
 	FName CommandName;
@@ -341,7 +341,7 @@ FText FPiUEEditorCommandCustomization::GetSelectedCommandTooltip() const
 	return FText::Format(LOCTEXT("CommandTooltipFmt", "{0}\n{1}"), ContextText, CommandText);
 }
 
-FText FPiUEEditorCommandCustomization::GetContextDisplayText(const TSharedPtr<FBindingContext>& InContext)
+FText FPiUECommandPickerCustomization::GetContextDisplayText(const TSharedPtr<FBindingContext>& InContext)
 {
 	if (!InContext.IsValid())
 	{

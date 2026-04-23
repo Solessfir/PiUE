@@ -28,8 +28,8 @@ public:
 	double TapThreshold = 150.0;
 
 	/** How long a category wedge must be hovered before auto-navigating into it. */
-	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 100.0, ClampMax = 2000.0, ForceUnits = "ms"), Category = "Input")
-	double CategoryHoverMs = 250.0;
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 100.0, ClampMax = 5000.0, ForceUnits = "ms"), Category = "Input")
+	double CategoryHoverMs = 1000.0;
 
 	/** Radius of the wedge ring in screen pixels. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 40.f, ClampMax = 400.f), Category = "Layout")

@@ -54,7 +54,7 @@ private:
 
 	TSharedPtr<SPiUERadialPanel> Panel;
 	TArray<TSharedPtr<SPiUEWedge>> Wedges;
-	TArray<FSlateBrush> WedgeBrushes;
+	TArray<TUniquePtr<FSlateBrush>> DynamicBrushes;
 
 	/** Index of the wedge currently under the cursor (INDEX_NONE = dead zone). */
 	int32 HoveredIndex = INDEX_NONE;

@@ -27,23 +27,13 @@ void SPiUERadialPanel::ClearChildren()
 	Children.Empty();
 }
 
-void SPiUERadialPanel::SetRadius(float InRadius)
+void SPiUERadialPanel::SetRadius(const float InRadius)
 {
 	Radius = InRadius;
 	Invalidate(EInvalidateWidgetReason::Layout);
 }
 
-void SPiUERadialPanel::SetHasBackSlot(bool bValue)
-{
-	if (bHasBackSlot == bValue)
-	{
-		return;
-	}
-	bHasBackSlot = bValue;
-	Invalidate(EInvalidateWidgetReason::Layout);
-}
-
-void SPiUERadialPanel::UpdateArc(float InAlpha, float InAngle)
+void SPiUERadialPanel::UpdateArc(const float InAlpha, const float InAngle)
 {
 	if (ArcAlpha == InAlpha && ArcAngle == InAngle)
 	{
@@ -54,27 +44,16 @@ void SPiUERadialPanel::UpdateArc(float InAlpha, float InAngle)
 	Invalidate(EInvalidateWidgetReason::Paint);
 }
 
-float SPiUERadialPanel::GetSlotAngle(int32 SlotIndex) const
+float SPiUERadialPanel::GetSlotAngle(const int32 SlotIndex) const
 {
-	return ComputeSlotAngle(SlotIndex, Children.Num(), bHasBackSlot);
+	return ComputeSlotAngle(SlotIndex, Children.Num());
 }
 
-float SPiUERadialPanel::ComputeSlotAngle(int32 SlotIndex, int32 SlotCount, bool bHasBack)
+float SPiUERadialPanel::ComputeSlotAngle(const int32 SlotIndex, const int32 SlotCount)
 {
 	if (SlotCount <= 0)
 	{
 		return 0.f;
-	}
-
-	if (bHasBack)
-	{
-		if (SlotIndex == SlotCount - 1)
-		{
-			return PI;
-		}
-		const float Step = 2.f * PI / static_cast<float>(SlotCount);
-		const float CenterOffset = (SlotCount - 2) / 2.f;
-		return (SlotIndex - CenterOffset) * Step;
 	}
 
 	switch (SlotCount)
@@ -99,7 +78,7 @@ float SPiUERadialPanel::ComputeSlotAngle(int32 SlotIndex, int32 SlotCount, bool 
 	}
 }
 
-FVector2D SPiUERadialPanel::GetSlotAnchor(int32 SlotIndex) const
+FVector2D SPiUERadialPanel::GetSlotAnchor(const int32 SlotIndex) const
 {
 	const int32 NumSlots = Children.Num();
 	if (NumSlots <= 0)
@@ -107,11 +86,11 @@ FVector2D SPiUERadialPanel::GetSlotAnchor(int32 SlotIndex) const
 		return FVector2D::ZeroVector;
 	}
 
-	const float Angle = ComputeSlotAngle(SlotIndex, NumSlots, bHasBackSlot);
+	const float Angle = ComputeSlotAngle(SlotIndex, NumSlots);
 	return FVector2D(FMath::Sin(Angle) * Radius, -FMath::Cos(Angle) * Radius);
 }
 
-int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, float DeadZoneRadius) const
+int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, const float DeadZoneRadius) const
 {
 	const int32 NumSlots = Children.Num();
 	if (NumSlots <= 0 || CursorDelta.SizeSquared() < DeadZoneRadius * DeadZoneRadius)
@@ -124,7 +103,7 @@ int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, float DeadZ
 	float BestDelta = TNumericLimits<float>::Max();
 	for (int32 Index = 0; Index < NumSlots; ++Index)
 	{
-		const float Diff = FMath::Abs(FMath::FindDeltaAngleRadians(ComputeSlotAngle(Index, NumSlots, bHasBackSlot), CursorAngle));
+		const float Diff = FMath::Abs(FMath::FindDeltaAngleRadians(ComputeSlotAngle(Index, NumSlots), CursorAngle));
 		if (Diff < BestDelta)
 		{
 			BestDelta = Diff;
@@ -166,7 +145,7 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 	const int32 NumSlots = Children.Num();
 	if (ArcAlpha > 0.01f && NumSlots > 0)
 	{
-		const float HalfArc = (NumSlots > 1) ? (PI / static_cast<float>(NumSlots)) : PI;
+		const float HalfArc = NumSlots > 1 ? (PI / static_cast<float>(NumSlots)) : PI;
 		constexpr int32 ArcSegments = 24;
 
 		FLinearColor ArcColor = HighlightColor;
@@ -209,7 +188,7 @@ void SPiUERadialPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArr
 		}
 
 		const FVector2D ChildSize = Widget->GetDesiredSize();
-		const float Angle = ComputeSlotAngle(Index, NumSlots, bHasBackSlot);
+		const float Angle = ComputeSlotAngle(Index, NumSlots);
 		const FVector2D Offset(FMath::Sin(Angle) * Radius, -FMath::Cos(Angle) * Radius);
 		const FVector2D Position = Center + Offset - ChildSize * 0.5f;
 
