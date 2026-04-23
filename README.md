@@ -30,7 +30,7 @@ The menu is unavailable while Play In Editor is active.
 | Property | Default | Description |
 |----------|---------|-------------|
 | **Tap Threshold** | `150` | Short press leaves the menu open for click navigation. Long press executes the hovered wedge on release. |
-| **Category Hover Ms** | `250` | How long (ms) a category wedge must be hovered before auto-navigating into it. |
+| **Category Hover Ms** | `1000` | How long (ms) a category wedge must be hovered before auto-navigating into it. |
 
 ### Layout
 
@@ -59,8 +59,7 @@ All item types share these base properties:
 | Property | Description |
 |----------|-------------|
 | **Label** | Text shown on the wedge. Keep short. |
-| **Icon** | Optional icon drawn beside the label. |
-| **Icon Tint** | Tint applied to the icon. White = no tint. |
+| **Icon** | Optional Slate SVG icon drawn beside the label. Select via the icon picker. |
 | **Background Tint** | Overrides the wedge background color. Unset = use theme default. |
 | **Bold** | Renders the label in bold. |
 
@@ -86,6 +85,9 @@ Instantiates an Editor Utility Object blueprint and calls its `Run` event.
 - **Object** - soft reference to the Editor Utility Object Blueprint asset
 
 ### Category
-Groups child items into a nested ring. Hovering the wedge for `Category Hover Ms` navigates into the category. A **Back** wedge at 6 o'clock returns to the parent ring.
+Groups child items into a nested ring. Hovering the wedge for `Category Hover Ms` navigates into the category.
 
 - **Children** - nested array of any item types, including further categories
+
+### Close
+Closes the current level of the menu. In a sub-ring: navigates back to the parent ring. At root: closes the menu entirely. Place it anywhere in a `Children` array to control its wedge position. Label and icon are fully customizable.
