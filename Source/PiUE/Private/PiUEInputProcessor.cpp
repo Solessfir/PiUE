@@ -4,14 +4,15 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Commands/InputBindingManager.h"
 #include "Framework/Commands/InputChord.h"
+#include "Editor.h"
 #include "HAL/PlatformTime.h"
 #include "LevelEditorViewport.h"
 #include "PiUECommands.h"
 #include "PiUESettings.h"
 #include "SEditorViewport.h"
-#include "SLevelViewport.h"
 #include "SPiUERadialMenu.h"
 #include "Widgets/SCanvas.h"
+#include "Widgets/SWindow.h"
 
 int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
 {
@@ -43,20 +44,60 @@ int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputC
 	return INDEX_NONE;
 }
 
-bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp)
+bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, const bool bAvailableAnywhere)
 {
+	const TSharedPtr<SWidget> FocusedWidget = SlateApp.GetKeyboardFocusedWidget();
+	if (FocusedWidget.IsValid())
+	{
+		const FName WidgetType = FocusedWidget->GetType();
+		if (WidgetType == FName(TEXT("SEditableText")) || WidgetType == FName(TEXT("SMultiLineEditableText")))
+		{
+			return false;
+		}
+	}
+
+	if (bAvailableAnywhere)
+	{
+		const FVector2D CursorPos = SlateApp.GetCursorPos();
+		TArray<TSharedRef<SWindow>> AllWindows;
+		FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
+		for (int32 i = AllWindows.Num() - 1; i >= 0; --i)
+		{
+			const TSharedRef<SWindow>& Win = AllWindows[i];
+			if (Win->GetType() == EWindowType::Normal && Win->GetCachedGeometry().IsUnderLocation(CursorPos))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	if (GCurrentLevelEditingViewportClient == nullptr)
 	{
 		return false;
 	}
-
-	const TSharedPtr<SEditorViewport> ViewportWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
-	if (!ViewportWidget.IsValid())
+	const TSharedPtr<SEditorViewport> LVPWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
+	if (!LVPWidget.IsValid())
 	{
 		return false;
 	}
-
-	return ViewportWidget->GetCachedGeometry().IsUnderLocation(SlateApp.GetCursorPos());
+	const TSharedPtr<SWindow> LVPWindow = FSlateApplication::Get().FindWidgetWindow(LVPWidget.ToSharedRef());
+	if (!LVPWindow.IsValid())
+	{
+		return false;
+	}
+	const FVector2D CursorPos = SlateApp.GetCursorPos();
+	TArray<TSharedRef<SWindow>> AllWindows;
+	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
+	for (int32 i = AllWindows.Num() - 1; i >= 0; --i)
+	{
+		const TSharedRef<SWindow>& Win = AllWindows[i];
+		if (Win->GetType() == EWindowType::Normal && Win->GetCachedGeometry().IsUnderLocation(CursorPos))
+		{
+			return Win == LVPWindow;
+		}
+	}
+	return false;
 }
 
 void FPiUEInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -117,7 +158,7 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return true;
 	}
 
-	if (!IsViewportFocused(SlateApp))
+	if (!IsViewportFocused(SlateApp, GetDefault<UPiUESettings>()->IsRingAvailableAnywhere(RingIndex)))
 	{
 		return false;
 	}
@@ -187,7 +228,7 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 				CloseMenu();
 				return true;
 			}
-			if (!bSummonKeyHeld && IsViewportFocused(SlateApp))
+			if (!bSummonKeyHeld && IsViewportFocused(SlateApp, GetDefault<UPiUESettings>()->IsRingAvailableAnywhere(MouseRingIndex)))
 			{
 				bSummonKeyHeld = true;
 				PressStartTime = FPlatformTime::Seconds();
@@ -287,26 +328,34 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 Ring
 {
 	CloseMenu();
 
-	if (GCurrentLevelEditingViewportClient == nullptr)
+	const FVector2D CursorScreen = SlateApp.GetCursorPos();
+
+	TSharedPtr<SWindow> Window;
+	TArray<TSharedRef<SWindow>> AllWindows;
+	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
+	for (int32 i = AllWindows.Num() - 1; i >= 0; --i)
 	{
-		return;
+		const TSharedRef<SWindow>& Win = AllWindows[i];
+		if (Win->GetType() == EWindowType::Normal && Win->GetCachedGeometry().IsUnderLocation(CursorScreen))
+		{
+			Window = Win;
+			break;
+		}
 	}
 
-	const TSharedPtr<SLevelViewport> ViewportWidget = StaticCastSharedPtr<SLevelViewport>(GCurrentLevelEditingViewportClient->GetEditorViewportWidget());
-	if (!ViewportWidget.IsValid())
+	if (!Window.IsValid())
 	{
 		return;
 	}
 
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
-	const FVector2D CursorScreen = SlateApp.GetCursorPos();
 	const float HalfSize = Settings->MenuRadius + 80.f;
 	const FVector2D MenuSize(HalfSize * 2.f, HalfSize * 2.f);
 
 	TSharedPtr<SPiUERadialMenu> MenuContent;
 	TSharedRef<SCanvas> Overlay = SNew(SCanvas);
 
-	// Compute position lazily using the canvas's own geometry - avoids the SLevelViewport/inner-overlay coordinate mismatch.
+	// Compute position lazily using the canvas's own geometry - avoids stale geometry on first frame.
 	TWeakPtr<SCanvas> WeakOverlay = Overlay;
 	auto ComputePos = [WeakOverlay, CursorScreen, HalfSize]() -> FVector2D
 	{
@@ -324,9 +373,12 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 Ring
 			SAssignNew(MenuContent, SPiUERadialMenu).RootItems(Settings->GetRingItems(RingIndex)).MenuCenterAbsPos(CursorScreen)
 		];
 
-	ViewportWidget->AddOverlayWidget(Overlay);
+	Window->AddOverlaySlot()
+	[
+		Overlay
+	];
 
-	OverlayViewport = ViewportWidget;
+	OverlayWindow = Window;
 	MenuOverlayWidget = Overlay;
 	Menu = MenuContent;
 }
@@ -334,14 +386,14 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 Ring
 void FPiUEInputProcessor::CloseMenu()
 {
 	bMouseTapCloseArmed = false;
-	if (const TSharedPtr<SLevelViewport> Viewport = OverlayViewport.Pin())
+	if (const TSharedPtr<SWindow> Window = OverlayWindow.Pin())
 	{
 		if (MenuOverlayWidget.IsValid())
 		{
-			Viewport->RemoveOverlayWidget(MenuOverlayWidget.ToSharedRef());
+			Window->RemoveOverlaySlot(MenuOverlayWidget.ToSharedRef());
 		}
 	}
-	OverlayViewport.Reset();
+	OverlayWindow.Reset();
 	MenuOverlayWidget.Reset();
 	Menu.Reset();
 }

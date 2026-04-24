@@ -6,7 +6,7 @@
 #include "Framework/Application/IInputProcessor.h"
 #include "InputCoreTypes.h"
 
-class SLevelViewport;
+class SWindow;
 class SPiUERadialMenu;
 
 /**
@@ -30,8 +30,8 @@ private:
 	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Returns INDEX_NONE if no match. */
 	static int32 FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord);
 
-	/** True when a level editor viewport currently has user focus - used to gate summon to the viewport. */
-	static bool IsViewportFocused(const FSlateApplication& SlateApp);
+	/** Gates summon. bAvailableAnywhere=true: any editor window (text fields excluded). false: level viewport only. */
+	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bAvailableAnywhere);
 
 	/** Spawns the menu host window at the cursor showing the specified ring. */
 	void OpenMenu(const FSlateApplication& SlateApp, int32 RingIndex);
@@ -39,7 +39,7 @@ private:
 	/** Dismisses the menu host window if open. */
 	void CloseMenu();
 
-	TWeakPtr<SLevelViewport> OverlayViewport;
+	TWeakPtr<SWindow> OverlayWindow;
 	TSharedPtr<SWidget> MenuOverlayWidget;
 	TWeakPtr<SPiUERadialMenu> Menu;
 

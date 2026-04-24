@@ -8,6 +8,19 @@
 #include "StructUtils/InstancedStruct.h"
 #include "PiUESettings.generated.h"
 
+USTRUCT()
+struct PIUE_API FPiUEMenuRing
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct))
+	TArray<FInstancedStruct> Items;
+
+	/** When true, the ring can be summoned anywhere in the editor window, not only the level viewport. */
+	UPROPERTY(EditAnywhere, Config)
+	bool bAvailableAnywhere = false;
+};
+
 /**
 * PiUE configuration. Edited via Editor Preferences -> Plugins -> PiUE.
 * Saves to Saved/Config/[Platform]/PiUE.ini (per-user, not checked in).
@@ -20,31 +33,44 @@ class PIUE_API UPiUESettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Ring1;
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FPiUEMenuRing Ring1;
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Ring2;
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FPiUEMenuRing Ring2;
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Ring3;
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FPiUEMenuRing Ring3;
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Ring4;
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FPiUEMenuRing Ring4;
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Ring5;
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FPiUEMenuRing Ring5;
 
 	const TArray<FInstancedStruct>* GetRingItems(const int32 RingIndex) const
 	{
 		switch (RingIndex)
 		{
-			case 0: return &Ring1;
-			case 1: return &Ring2;
-			case 2: return &Ring3;
-			case 3: return &Ring4;
-			case 4: return &Ring5;
+			case 0: return &Ring1.Items;
+			case 1: return &Ring2.Items;
+			case 2: return &Ring3.Items;
+			case 3: return &Ring4.Items;
+			case 4: return &Ring5.Items;
 			default: return nullptr;
+		}
+	}
+
+	bool IsRingAvailableAnywhere(const int32 RingIndex) const
+	{
+		switch (RingIndex)
+		{
+			case 0: return Ring1.bAvailableAnywhere;
+			case 1: return Ring2.bAvailableAnywhere;
+			case 2: return Ring3.bAvailableAnywhere;
+			case 3: return Ring4.bAvailableAnywhere;
+			case 4: return Ring5.bAvailableAnywhere;
+			default: return false;
 		}
 	}
 
