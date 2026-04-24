@@ -9,11 +9,13 @@ Get `PiUE.zip` from the [releases](https://github.com/Solessfir/PiUE/releases) a
 
 ## Usage
 
-Press **V** (or **Mouse 4**) while the level viewport has focus to open the menu. **Tap** (< `TapThreshold`) leaves the menu open - click a wedge or press again to close. **Hold** (≥ `TapThreshold`) executes the highlighted wedge on release. Move the cursor away from center to highlight a wedge; stay in the dead zone to close without acting.
+PiUE supports up to **five independent rings**, each bound to its own hotkey. Press the bound key while the level viewport has focus to open that ring. **Tap** (< `TapThreshold`) leaves the menu open - click a wedge or press again to close. **Hold** (≥ `TapThreshold`) executes the highlighted wedge on release. Move the cursor away from center to highlight a wedge; stay in the dead zone to close without acting.
+
+**Ring 1** defaults to **V** and **Mouse 4**. Rings 2–5 are unbound by default.
 
 The menu is unavailable while Play In Editor is active.
 
-> Both bindings can be rebound in **Editor Preferences → Keyboard Shortcuts → PiUE → Summon PiUE Radial Menu**.
+> All ring bindings can be rebound in **Editor Preferences → General → Keyboard Shortcuts → PiUE**.
 
 ## Configuration
 
@@ -23,7 +25,11 @@ The menu is unavailable while Play In Editor is active.
 
 | Property | Description |
 |----------|-------------|
-| **Menu Items** | Root-level actions and categories. Add via the `+` button. |
+| **Ring 1** | Items for the ring bound to the first hotkey. |
+| **Ring 2** | Items for the ring bound to the second hotkey. |
+| **Ring 3** | Items for the ring bound to the third hotkey. |
+| **Ring 4** | Items for the ring bound to the fourth hotkey. |
+| **Ring 5** | Items for the ring bound to the fifth hotkey. |
 
 ### Input
 
