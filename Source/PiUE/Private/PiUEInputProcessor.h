@@ -26,6 +26,9 @@ public:
 	virtual const TCHAR* GetDebugName() const override { return TEXT("PiUE"); }
 	// End IInputProcessor interface
 
+	/** Dismisses the menu host window if open. Safe to call from ShutdownModule. */
+	void CloseMenu();
+
 private:
 	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Returns INDEX_NONE if no match. */
 	static int32 FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord);
@@ -33,11 +36,11 @@ private:
 	/** Gates summon. bAvailableAnywhere=true: any editor window (text fields excluded). false: level viewport only. */
 	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bAvailableAnywhere);
 
-	/** Spawns the menu host window at the cursor showing the specified ring. */
-	void OpenMenu(const FSlateApplication& SlateApp, int32 RingIndex);
+	/** Returns true if the topmost normal window under the cursor is the level viewport window. */
+	static bool IsLevelViewportTopmost(const FSlateApplication& SlateApp);
 
-	/** Dismisses the menu host window if open. */
-	void CloseMenu();
+	/** Spawns the menu host window at the cursor showing the specified ring. */
+	void OpenMenu(const FSlateApplication& SlateApp, const int32 RingIndex);
 
 	TWeakPtr<SWindow> OverlayWindow;
 	TSharedPtr<SWidget> MenuOverlayWidget;

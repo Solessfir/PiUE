@@ -7,6 +7,7 @@
 #include "Widgets/SCompoundWidget.h"
 
 struct FInstancedStruct;
+struct FPiUEMenuItemBase;
 class SPiUERadialPanel;
 class SPiUEWedge;
 
@@ -50,6 +51,9 @@ private:
 	/** Marks current wedges exiting, waits for TransitionCountdown, then runs NavAction and rebuilds. */
 	void BeginTransition(TFunction<void()> NavAction);
 
+	/** Creates an icon brush (if needed) and a wedge widget, adds both to the panel. */
+	void AddWedge(const FPiUEMenuItemBase& Base, FLinearColor BaseTint);
+
 	/** Navigation stack - each entry points at the items array for a level. */
 	TArray<const TArray<FInstancedStruct>*> NavStack;
 
@@ -79,4 +83,5 @@ private:
 	/** Cached settings snapshot values to avoid repeated CDO access. */
 	float MenuRadius = 120.f;
 	float DeadZoneRadius = 25.f;
+	double CachedCategoryHoverMs = 1000.0;
 };

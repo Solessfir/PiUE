@@ -51,6 +51,8 @@ private:
 	float OutwardRadius = 0.f;
 	FLinearColor BaseTint = FLinearColor::Black;
 	FLinearColor HighlightTint = FLinearColor::White;
+	float CachedAnimSpeed = 25.f;
+	float CachedHighlightAnimSpeed = 14.f;
 
 	TUniquePtr<FSlateRoundedBoxBrush> AnimBrush;
 

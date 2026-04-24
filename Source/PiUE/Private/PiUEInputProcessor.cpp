@@ -11,6 +11,7 @@
 #include "PiUESettings.h"
 #include "SEditorViewport.h"
 #include "SPiUERadialMenu.h"
+#include "SPiUERadialPanel.h"
 #include "Widgets/SCanvas.h"
 #include "Widgets/SWindow.h"
 
@@ -72,20 +73,28 @@ bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, c
 		return false;
 	}
 
-	if (GCurrentLevelEditingViewportClient == nullptr)
+	return IsLevelViewportTopmost(SlateApp);
+}
+
+bool FPiUEInputProcessor::IsLevelViewportTopmost(const FSlateApplication& SlateApp)
+{
+	if (!GCurrentLevelEditingViewportClient)
 	{
 		return false;
 	}
+
 	const TSharedPtr<SEditorViewport> LVPWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
 	if (!LVPWidget.IsValid())
 	{
 		return false;
 	}
+
 	const TSharedPtr<SWindow> LVPWindow = FSlateApplication::Get().FindWidgetWindow(LVPWidget.ToSharedRef());
 	if (!LVPWindow.IsValid())
 	{
 		return false;
 	}
+
 	const FVector2D CursorPos = SlateApp.GetCursorPos();
 	TArray<TSharedRef<SWindow>> AllWindows;
 	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
@@ -163,7 +172,7 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return false;
 	}
 
-	if (GEditor != nullptr && GEditor->IsPlaySessionInProgress())
+	if (GEditor && GEditor->IsPlaySessionInProgress())
 	{
 		return false;
 	}
@@ -220,7 +229,7 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord);
 	if (MouseRingIndex != INDEX_NONE)
 	{
-		if (GEditor == nullptr || !GEditor->IsPlaySessionInProgress())
+		if (!GEditor || !GEditor->IsPlaySessionInProgress())
 		{
 			if (Menu.IsValid())
 			{
@@ -324,7 +333,7 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 	return true;
 }
 
-void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 RingIndex)
+void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, const int32 RingIndex)
 {
 	CloseMenu();
 
@@ -349,7 +358,7 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 Ring
 	}
 
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
-	const float HalfSize = Settings->MenuRadius + 80.f;
+	const float HalfSize = Settings->MenuRadius + SPiUERadialPanel::WedgePadding;
 	const FVector2D MenuSize(HalfSize * 2.f, HalfSize * 2.f);
 
 	TSharedPtr<SPiUERadialMenu> MenuContent;

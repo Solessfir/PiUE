@@ -13,7 +13,10 @@
 void SPiUEWedge::Construct(const FArguments& InArgs)
 {
 	BaseTint = InArgs._BaseTint;
-	HighlightTint = GetDefault<UPiUESettings>()->HighlightWedgeTint;
+	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
+	HighlightTint = Settings->HighlightWedgeTint;
+	CachedAnimSpeed = Settings->WedgeAnimSpeed;
+	CachedHighlightAnimSpeed = Settings->HighlightAnimSpeed;
 
 	constexpr float CornerRadius = 8.f;
 	AnimBrush = MakeUnique<FSlateRoundedBoxBrush>(BaseTint, CornerRadius);
@@ -22,7 +25,7 @@ void SPiUEWedge::Construct(const FArguments& InArgs)
 
 	const FSlateBrush* IconBrush = InArgs._Icon ? InArgs._Icon : FAppStyle::GetBrush("NoBrush");
 	const bool bHasIcon = InArgs._Icon != nullptr
-		&& (InArgs._Icon->GetResourceName() != NAME_None || InArgs._Icon->GetResourceObject() != nullptr);
+		&& (InArgs._Icon->GetResourceName() != NAME_None || InArgs._Icon->GetResourceObject());
 
 	TSharedRef<SHorizontalBox> Content = SNew(SHorizontalBox);
 
@@ -96,14 +99,14 @@ void SPiUEWedge::Tick(const FGeometry& AllottedGeometry, const double InCurrentT
 
 	// Presence: translate from center + fade for enter/exit.
 	const float PresenceTarget = bExiting ? 0.f : 1.f;
-	PresenceAlpha += (PresenceTarget - PresenceAlpha) * FMath::Min(1.f, InDeltaTime * GetDefault<UPiUESettings>()->WedgeAnimSpeed);
+	PresenceAlpha += (PresenceTarget - PresenceAlpha) * FMath::Min(1.f, InDeltaTime * CachedAnimSpeed);
 	const FVector2D Translation = OutwardDir * OutwardRadius * (PresenceAlpha - 1.f);
 	SetRenderTransform(FSlateRenderTransform(FTransform2D(Translation)));
 	SetColorAndOpacity(FLinearColor(1.f, 1.f, 1.f, PresenceAlpha));
 
 	// Highlight tint lerp.
 	const float HighlightTarget = bHighlighted ? 1.f : 0.f;
-	HighlightAlpha += (HighlightTarget - HighlightAlpha) * FMath::Min(1.f, InDeltaTime * 14.f);
+	HighlightAlpha += (HighlightTarget - HighlightAlpha) * FMath::Min(1.f, InDeltaTime * CachedHighlightAnimSpeed);
 
 	if (AnimBrush.IsValid())
 	{

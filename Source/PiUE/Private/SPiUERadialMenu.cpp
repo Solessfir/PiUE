@@ -13,16 +13,21 @@
 
 #define LOCTEXT_NAMESPACE "PiUE"
 
+constexpr float WedgeExitDuration = 0.13f;
+constexpr float ArcTrackSpeed = 18.f;
+constexpr float ArcFadeSpeed = 10.f;
+
 void SPiUERadialMenu::Construct(const FArguments& InArgs)
 {
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
 	MenuRadius = Settings->MenuRadius;
 	DeadZoneRadius = Settings->DeadZoneRadius;
+	CachedCategoryHoverMs = Settings->CategoryHoverMs;
 
 	MenuCenterAbsPos = InArgs._MenuCenterAbsPos;
 
 	const TArray<FInstancedStruct>* Root = InArgs._RootItems;
-	if (Root != nullptr)
+	if (Root)
 	{
 		NavStack.Add(Root);
 	}
@@ -57,7 +62,7 @@ void SPiUERadialMenu::BeginTransition(TFunction<void()> NavAction)
 	}
 
 	PendingNavAction = MoveTemp(NavAction);
-	TransitionCountdown = 0.13f;
+	TransitionCountdown = WedgeExitDuration;
 	bTransitionPending = true;
 }
 
@@ -85,40 +90,13 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 	for (const FInstancedStruct& Item : Items)
 	{
 		const UScriptStruct* Type = Item.GetScriptStruct();
-		if (Type == nullptr || !Type->IsChildOf(FPiUEMenuItemBase::StaticStruct()))
+		if (!Type || !Type->IsChildOf(FPiUEMenuItemBase::StaticStruct()))
 		{
 			continue;
 		}
-
 		const FPiUEMenuItemBase& Base = Item.Get<FPiUEMenuItemBase>();
 		const FLinearColor BaseTint = Base.BackgroundTint.IsSet() ? Base.BackgroundTint.GetValue() : Settings->DefaultWedgeTint;
-
-		const FSlateBrush* IconBrushPtr = nullptr;
-		if (!Base.Icon.Path.IsEmpty())
-		{
-			TUniquePtr<FSlateBrush> Brush;
-			if (Base.Icon.Path.EndsWith(TEXT(".svg"), ESearchCase::IgnoreCase))
-			{
-				Brush = MakeUnique<FSlateVectorImageBrush>(Base.Icon.Path, FVector2D(18.f, 18.f));
-			}
-			else
-			{
-				Brush = MakeUnique<FSlateDynamicImageBrush>(FName(*Base.Icon.Path), FVector2D(18.f, 18.f));
-			}
-			IconBrushPtr = Brush.Get();
-			DynamicBrushes.Add(MoveTemp(Brush));
-		}
-
-		TSharedPtr<SPiUEWedge> Wedge;
-		Panel->AddSlot()
-		[
-			SAssignNew(Wedge, SPiUEWedge)
-			.Icon(IconBrushPtr)
-			.Label(Base.Label)
-			.BaseTint(BaseTint)
-			.bBold(Base.bBold)
-		];
-		Wedges.Add(Wedge);
+		AddWedge(Base, BaseTint);
 	}
 
 	for (int32 i = 0; i < Wedges.Num(); ++i)
@@ -128,6 +106,36 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 	}
 
 	Invalidate(EInvalidateWidgetReason::Layout);
+}
+
+void SPiUERadialMenu::AddWedge(const FPiUEMenuItemBase& Base, const FLinearColor BaseTint)
+{
+	const FSlateBrush* IconBrushPtr = nullptr;
+	if (!Base.Icon.Path.IsEmpty())
+	{
+		TUniquePtr<FSlateBrush> Brush;
+		if (Base.Icon.Path.EndsWith(TEXT(".svg"), ESearchCase::IgnoreCase))
+		{
+			Brush = MakeUnique<FSlateVectorImageBrush>(Base.Icon.Path, FVector2D(18.f, 18.f));
+		}
+		else
+		{
+			Brush = MakeUnique<FSlateDynamicImageBrush>(FName(*Base.Icon.Path), FVector2D(18.f, 18.f));
+		}
+		IconBrushPtr = Brush.Get();
+		DynamicBrushes.Add(MoveTemp(Brush));
+	}
+
+	TSharedPtr<SPiUEWedge> Wedge;
+	Panel->AddSlot()
+	[
+		SAssignNew(Wedge, SPiUEWedge)
+		.Icon(IconBrushPtr)
+		.Label(Base.Label)
+		.BaseTint(BaseTint)
+		.bBold(Base.bBold)
+	];
+	Wedges.Add(Wedge);
 }
 
 void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -182,10 +190,11 @@ void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCur
 	if (bArcActive)
 	{
 		const float Delta = FMath::FindDeltaAngleRadians(ArcCurrentAngle, ArcTargetAngle);
-		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * 18.f);
+		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * ArcTrackSpeed);
 	}
+
 	const float AlphaTarget = bArcActive ? 1.f : 0.f;
-	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * 10.f);
+	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * ArcFadeSpeed);
 	Panel->UpdateArc(ArcDisplayAlpha, ArcCurrentAngle);
 }
 
@@ -205,7 +214,7 @@ void SPiUERadialMenu::TryExecuteHoveredAction()
 	const FInstancedStruct& Item = Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
 
-	if (Type != nullptr && (Type->IsChildOf(FPiUECloseItem::StaticStruct()) || Type->IsChildOf(FPiUECategoryItem::StaticStruct())))
+	if (Type && (Type->IsChildOf(FPiUECloseItem::StaticStruct()) || Type->IsChildOf(FPiUECategoryItem::StaticStruct())))
 	{
 		return;
 	}
@@ -234,7 +243,7 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 
 	const FInstancedStruct& Item = Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
-	if (Type == nullptr)
+	if (!Type)
 	{
 		return;
 	}
@@ -246,7 +255,7 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 			return;
 		}
 		CategoryHoverAccum += DeltaTime;
-		if (CategoryHoverAccum >= GetDefault<UPiUESettings>()->CategoryHoverMs / 1000.0)
+		if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
 		{
 			CategoryHoverAccum = 0.f;
 			CategoryHoverIndex = INDEX_NONE;
@@ -265,7 +274,7 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 	}
 
 	CategoryHoverAccum += DeltaTime;
-	if (CategoryHoverAccum >= GetDefault<UPiUESettings>()->CategoryHoverMs / 1000.0)
+	if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
 	{
 		const int32 NavIndex = HoveredIndex;
 		CategoryHoverAccum = 0.f;
@@ -300,12 +309,12 @@ bool SPiUERadialMenu::ConfirmSelection()
 	const FInstancedStruct& Item = Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
 
-	if (Type != nullptr && Type->IsChildOf(FPiUECloseItem::StaticStruct()))
+	if (Type && Type->IsChildOf(FPiUECloseItem::StaticStruct()))
 	{
 		return NavigateBack();
 	}
 
-	if (Type != nullptr && Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
+	if (Type && Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
 	{
 		const int32 ClickedIndex = HoveredIndex;
 		BeginTransition([this, ClickedIndex]()

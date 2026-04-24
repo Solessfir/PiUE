@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettings.h"
-#include "InstancedStruct.h"
 #include "StructUtils/InstancedStruct.h"
 #include "PiUESettings.generated.h"
 
+/** Configuration for one radial ring: its items and where it is allowed to open. */
 USTRUCT()
 struct PIUE_API FPiUEMenuRing
 {
@@ -48,6 +48,7 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category = "Menu")
 	FPiUEMenuRing Ring5;
 
+	/** Returns pointer to the items array for the given ring index (0-4), or nullptr if out of range. */
 	const TArray<FInstancedStruct>* GetRingItems(const int32 RingIndex) const
 	{
 		switch (RingIndex)
@@ -61,6 +62,7 @@ public:
 		}
 	}
 
+	/** Returns true if the ring at the given index (0-4) can be summoned in any editor window, not only the level viewport. */
 	bool IsRingAvailableAnywhere(const int32 RingIndex) const
 	{
 		switch (RingIndex)
@@ -93,6 +95,10 @@ public:
 	/** Speed multiplier for wedge enter/exit translation animation. Higher = snappier. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
 	float WedgeAnimSpeed = 25.f;
+
+	/** Speed multiplier for wedge highlight color transition. Higher = snappier. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
+	float HighlightAnimSpeed = 14.f;
 
 	/** Wedge background tint used when TintOverride alpha is zero. */
 	UPROPERTY(EditAnywhere, Config, Category = "Style")

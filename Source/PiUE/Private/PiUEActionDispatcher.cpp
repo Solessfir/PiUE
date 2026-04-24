@@ -48,7 +48,7 @@ namespace PiUE
 		}
 
 		// Fallback: try the active viewport's own command list (covers viewport-specific bindings).
-		if (GCurrentLevelEditingViewportClient != nullptr)
+		if (GCurrentLevelEditingViewportClient)
 		{
 			const TSharedPtr<SEditorViewport> ViewportWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
 			if (ViewportWidget.IsValid() && ViewportWidget->GetCommandList()->TryExecuteAction(Info.ToSharedRef()))
@@ -63,7 +63,7 @@ namespace PiUE
 
 	static bool ExecuteConsoleCommand(const FPiUEConsoleCommandItem& Item)
 	{
-		if (Item.Command.IsEmpty() || GEngine == nullptr)
+		if (Item.Command.IsEmpty() || !GEngine)
 		{
 			return false;
 		}
@@ -80,21 +80,21 @@ namespace PiUE
 		}
 
 		UEditorUtilityBlueprint* Blueprint = Item.Object.LoadSynchronous();
-		if (Blueprint == nullptr)
+		if (!Blueprint)
 		{
 			UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityBlueprint {0}.", Item.Object.ToString());
 			return false;
 		}
 
 		UClass* Class = Blueprint->GeneratedClass;
-		if (Class == nullptr || !Class->IsChildOf<UEditorUtilityObject>())
+		if (!Class || !Class->IsChildOf<UEditorUtilityObject>())
 		{
 			UE_LOGFMT(LogPiUE, Warning, "PiUE: EditorUtilityBlueprint {0} has no valid generated class.", Item.Object.ToString());
 			return false;
 		}
 
 		UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class);
-		if (Instance == nullptr)
+		if (!Instance)
 		{
 			return false;
 		}
@@ -111,14 +111,14 @@ namespace PiUE
 		}
 
 		UEditorUtilityWidgetBlueprint* WidgetBP = Item.Widget.LoadSynchronous();
-		if (WidgetBP == nullptr)
+		if (!WidgetBP)
 		{
 			UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityWidgetBlueprint {0}.", Item.Widget.ToString());
 			return false;
 		}
 
 		UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr;
-		if (Subsystem == nullptr)
+		if (!Subsystem)
 		{
 			return false;
 		}
@@ -131,7 +131,7 @@ namespace PiUE
 bool FPiUEActionDispatcher::Execute(const FInstancedStruct& Item)
 {
 	const UScriptStruct* Type = Item.GetScriptStruct();
-	if (Type == nullptr)
+	if (!Type)
 	{
 		return false;
 	}

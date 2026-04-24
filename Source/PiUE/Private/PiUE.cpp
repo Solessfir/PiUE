@@ -20,10 +20,16 @@ void FPiUEModule::StartupModule()
 
 void FPiUEModule::ShutdownModule()
 {
+	if (InputProcessor.IsValid())
+	{
+		InputProcessor->CloseMenu();
+	}
+
 	if (FSlateApplication::IsInitialized() && InputProcessor.IsValid())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
 	}
+
 	InputProcessor.Reset();
 
 	FPiUECommands::Unregister();

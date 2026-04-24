@@ -63,6 +63,9 @@ public:
 	/** Computes the local-space anchor point for a given slot index (used for hit-testing and painting). */
 	FVector2D GetSlotAnchor(const int32 SlotIndex) const;
 
+	/** Extra space beyond the ring radius reserved so wedges at the extremes are not clipped. Shared with overlay sizing. */
+	static constexpr float WedgePadding = 80.f;
+
 	// Begin SWidget interface
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
@@ -78,4 +81,7 @@ private:
 	float ArcAngle = 0.f;
 	float ArcAlpha = 0.f;
 	FLinearColor HighlightColor = FLinearColor(0.1f, 0.5f, 0.9f, 0.95f);
+
+	mutable TArray<FVector2D> CachedRingPoints;
+	mutable TArray<FVector2D> CachedArcPoints;
 };

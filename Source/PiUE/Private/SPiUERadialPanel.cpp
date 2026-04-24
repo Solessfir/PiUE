@@ -115,8 +115,6 @@ int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, const float
 
 FVector2D SPiUERadialPanel::ComputeDesiredSize(float) const
 {
-	// Reserve enough space for the ring plus a wedge-sized padding so wedges at the extremes are not clipped.
-	constexpr float WedgePadding = 80.f;
 	const float Side = (Radius + WedgePadding) * 2.f;
 	return FVector2D(Side, Side);
 }
@@ -132,14 +130,14 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 	constexpr int32 RingSegments = 48;
 
 	// Overlap 2 segments past start so antialiased line caps are buried under existing geometry, eliminating the seam.
-	TArray<FVector2D> RingPoints;
-	RingPoints.Reserve(RingSegments + 3);
+	CachedRingPoints.Reset();
+	CachedRingPoints.Reserve(RingSegments + 3);
 	for (int32 i = 0; i <= RingSegments + 1; ++i)
 	{
 		const float A = (2.f * PI * i) / RingSegments;
-		RingPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
+		CachedRingPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 	}
-	FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 1, PaintGeo, RingPoints, ESlateDrawEffect::None, FLinearColor(0.15f, 0.15f, 0.15f, 0.9f), true, 4.5f);
+	FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 1, PaintGeo, CachedRingPoints, ESlateDrawEffect::None, FLinearColor(0.15f, 0.15f, 0.15f, 0.9f), true, 4.5f);
 
 	// Highlight arc at the animated angle, faded by ArcAlpha.
 	const int32 NumSlots = Children.Num();
@@ -154,14 +152,14 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 		// Full-circle arc (single slot): overlap 2 segments past start to bury end cap under existing geometry.
 		const bool bFullCircle = HalfArc >= PI;
 		const int32 ArcOverlap = bFullCircle ? 2 : 0;
-		TArray<FVector2D> ArcPoints;
-		ArcPoints.Reserve(ArcSegments + 1 + ArcOverlap);
+		CachedArcPoints.Reset();
+		CachedArcPoints.Reserve(ArcSegments + 1 + ArcOverlap);
 		for (int32 i = 0; i <= ArcSegments + ArcOverlap; ++i)
 		{
 			const float A = FMath::Lerp(ArcAngle - HalfArc, ArcAngle + HalfArc, static_cast<float>(i) / ArcSegments);
-			ArcPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
+			CachedArcPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 		}
-		FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 2, PaintGeo, ArcPoints, ESlateDrawEffect::None, ArcColor, true, 5.5f);
+		FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 2, PaintGeo, CachedArcPoints, ESlateDrawEffect::None, ArcColor, true, 5.5f);
 	}
 
 	return ChildLayer + 2;
