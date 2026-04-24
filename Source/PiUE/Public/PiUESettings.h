@@ -12,6 +12,7 @@
 * PiUE configuration. Edited via Editor Preferences -> Plugins -> PiUE.
 * Saves to Saved/Config/[Platform]/PiUE.ini (per-user, not checked in).
 * Copy that file to Plugins/PiUE/Config/DefaultPiUE.ini to distribute defaults to all users.
+* Ring summon keys are rebound via Editor Preferences -> General -> Keyboard Shortcuts -> PiUE.
 */
 UCLASS(Config = "PiUE", Meta = (DisplayName = "PiUE"))
 class PIUE_API UPiUESettings : public UDeveloperSettings
@@ -19,9 +20,33 @@ class PIUE_API UPiUESettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
-	/** Add actions and categories here. Categories can nest further items. */
 	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> MenuItems;
+	TArray<FInstancedStruct> Ring1;
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	TArray<FInstancedStruct> Ring2;
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	TArray<FInstancedStruct> Ring3;
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	TArray<FInstancedStruct> Ring4;
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	TArray<FInstancedStruct> Ring5;
+
+	const TArray<FInstancedStruct>* GetRingItems(const int32 RingIndex) const
+	{
+		switch (RingIndex)
+		{
+			case 0: return &Ring1;
+			case 1: return &Ring2;
+			case 2: return &Ring3;
+			case 3: return &Ring4;
+			case 4: return &Ring5;
+			default: return nullptr;
+		}
+	}
 
 	/** Short press leaves menu open for click navigation. Long press executes hovered wedge on release. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 50.0, ClampMax = 1000.0, ForceUnits = "ms"), Category = "Input")

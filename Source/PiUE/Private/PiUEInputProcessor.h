@@ -27,14 +27,14 @@ public:
 	// End IInputProcessor interface
 
 private:
-	/** Returns the summon chord (primary or secondary) whose key matches PressedKey. False if neither matches. */
-	static bool GetMatchingSummonChord(const FKey& PressedKey, FInputChord& OutChord);
+	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Returns INDEX_NONE if no match. */
+	static int32 FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord);
 
 	/** True when a level editor viewport currently has user focus - used to gate summon to the viewport. */
 	static bool IsViewportFocused(const FSlateApplication& SlateApp);
 
-	/** Spawns the menu host window at the cursor. */
-	void OpenMenu(const FSlateApplication& SlateApp);
+	/** Spawns the menu host window at the cursor showing the specified ring. */
+	void OpenMenu(const FSlateApplication& SlateApp, int32 RingIndex);
 
 	/** Dismisses the menu host window if open. */
 	void CloseMenu();

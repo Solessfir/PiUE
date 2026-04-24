@@ -13,24 +13,34 @@
 #include "SPiUERadialMenu.h"
 #include "Widgets/SCanvas.h"
 
-bool FPiUEInputProcessor::GetMatchingSummonChord(const FKey& PressedKey, FInputChord& OutChord)
+int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
 {
-	const TSharedPtr<FUICommandInfo> Info = FPiUECommands::Get().SummonRadialMenu;
-	if (!Info.IsValid())
+	const TSharedPtr<FUICommandInfo> Commands[5] =
 	{
-		return false;
-	}
+		FPiUECommands::Get().SummonRadialMenu1,
+		FPiUECommands::Get().SummonRadialMenu2,
+		FPiUECommands::Get().SummonRadialMenu3,
+		FPiUECommands::Get().SummonRadialMenu4,
+		FPiUECommands::Get().SummonRadialMenu5,
+	};
 
-	for (int32 i = 0; i < 2; ++i)
+	for (int32 RingIndex = 0; RingIndex < 5; ++RingIndex)
 	{
-		const FInputChord Chord = *Info->GetActiveChord(static_cast<EMultipleKeyBindingIndex>(i));
-		if (Chord.IsValidChord() && Chord.Key == PressedKey)
+		if (!Commands[RingIndex].IsValid())
 		{
-			OutChord = Chord;
-			return true;
+			continue;
+		}
+		for (int32 i = 0; i < 2; ++i)
+		{
+			const FInputChord Chord = *Commands[RingIndex]->GetActiveChord(static_cast<EMultipleKeyBindingIndex>(i));
+			if (Chord.IsValidChord() && Chord.Key == PressedKey)
+			{
+				OutChord = Chord;
+				return RingIndex;
+			}
 		}
 	}
-	return false;
+	return INDEX_NONE;
 }
 
 bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp)
@@ -78,7 +88,8 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 	}
 
 	FInputChord SummonChord;
-	if (!GetMatchingSummonChord(InKeyEvent.GetKey(), SummonChord))
+	const int32 RingIndex = FindMatchingRingIndex(InKeyEvent.GetKey(), SummonChord);
+	if (RingIndex == INDEX_NONE)
 	{
 		return false;
 	}
@@ -118,7 +129,7 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 
 	bSummonKeyHeld = true;
 	PressStartTime = FPlatformTime::Seconds();
-	OpenMenu(SlateApp);
+	OpenMenu(SlateApp, RingIndex);
 	return true;
 }
 
@@ -130,7 +141,7 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 	}
 
 	FInputChord SummonChord;
-	if (!GetMatchingSummonChord(InKeyEvent.GetKey(), SummonChord))
+	if (FindMatchingRingIndex(InKeyEvent.GetKey(), SummonChord) == INDEX_NONE)
 	{
 		return false;
 	}
@@ -165,7 +176,8 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 {
 	// Summon via mouse button (e.g. Mouse4 secondary bind).
 	FInputChord SummonChord;
-	if (GetMatchingSummonChord(MouseEvent.GetEffectingButton(), SummonChord))
+	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord);
+	if (MouseRingIndex != INDEX_NONE)
 	{
 		if (GEditor == nullptr || !GEditor->IsPlaySessionInProgress())
 		{
@@ -179,7 +191,7 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 			{
 				bSummonKeyHeld = true;
 				PressStartTime = FPlatformTime::Seconds();
-				OpenMenu(SlateApp);
+				OpenMenu(SlateApp, MouseRingIndex);
 			}
 		}
 		return Menu.IsValid();
@@ -223,7 +235,7 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
 	FInputChord SummonChord;
-	if (!GetMatchingSummonChord(MouseEvent.GetEffectingButton(), SummonChord))
+	if (FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord) == INDEX_NONE)
 	{
 		return false;
 	}
@@ -271,7 +283,7 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 	return true;
 }
 
-void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp)
+void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, int32 RingIndex)
 {
 	CloseMenu();
 
@@ -309,7 +321,7 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp)
 		.Position(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateLambda(ComputePos)))
 		.Size(TAttribute<FVector2D>(MenuSize))
 		[
-			SAssignNew(MenuContent, SPiUERadialMenu).RootItems(&Settings->MenuItems).MenuCenterAbsPos(CursorScreen)
+			SAssignNew(MenuContent, SPiUERadialMenu).RootItems(Settings->GetRingItems(RingIndex)).MenuCenterAbsPos(CursorScreen)
 		];
 
 	ViewportWidget->AddOverlayWidget(Overlay);

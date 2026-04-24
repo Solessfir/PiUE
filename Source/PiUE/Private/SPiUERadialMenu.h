@@ -40,6 +40,7 @@ public:
 
 	// Begin SWidget interface
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	// End SWidget interface
 
 private:
@@ -70,6 +71,7 @@ private:
 	/** Absolute screen position of the cursor at menu open. Center reference for dead-zone, bypasses stale geometry. */
 	FVector2D MenuCenterAbsPos = FVector2D::ZeroVector;
 
+	mutable bool bFirstPaintDone = false;
 	bool bTransitionPending = false;
 	float TransitionCountdown = 0.f;
 	TFunction<void()> PendingNavAction;

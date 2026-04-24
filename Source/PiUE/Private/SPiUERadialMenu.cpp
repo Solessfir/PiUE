@@ -326,6 +326,17 @@ bool SPiUERadialMenu::ConfirmSelection()
 	return true;
 }
 
+int32 SPiUERadialMenu::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	// Canvas geometry is zero on the first paint (widget not yet laid out). Skip to suppress the one-frame position flash.
+	// if (!bFirstPaintDone)
+	// {
+	// 	bFirstPaintDone = true;
+	// 	return LayerId;
+	// }
+	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+}
+
 bool SPiUERadialMenu::NavigateBack()
 {
 	if (NavStack.Num() <= 1)
