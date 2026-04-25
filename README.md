@@ -9,7 +9,7 @@ Get `PiUE.zip` from the [releases](https://github.com/Solessfir/PiUE/releases) a
 
 ## Usage
 
-PiUE supports up to **five independent rings**, each bound to its own hotkey. Press the bound key to open that ring. **Tap** (< `TapThreshold`) leaves the menu open - click a wedge or press again to close. **Hold** (≥ `TapThreshold`) executes the highlighted wedge on release. Move the cursor away from center to highlight a wedge; stay in the dead zone to close without acting.
+PiUE supports up to **five independent rings**, each bound to its own hotkey. Press the bound key to open that ring. **Tap** (< `Tap Threshold`) leaves the menu open - click a wedge or press again to close. **Hold** (≥ `Tap Threshold`) executes the highlighted wedge on release. Move the cursor away from center to highlight a wedge; stay in the dead zone to close without acting.
 
 By default each ring only opens when the cursor is over the **level viewport**. Enable **Available Anywhere** on a ring to allow it to open in any editor window.
 
@@ -34,10 +34,10 @@ Each ring has two settings:
 
 ### Input
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| **Tap Threshold** | `150` | Short press leaves the menu open for click navigation. Long press executes the hovered wedge on release. |
-| **Category Hover Ms** | `1000` | How long (ms) a category wedge must be hovered before auto-navigating into it. |
+| Property | Default | Unit | Description |
+|----------|---------|------|-------------|
+| **Tap Threshold** | `150` | ms | Short press leaves the menu open for click navigation. Long press executes the hovered wedge on release. |
+| **Category Hover Ms** | `1000` | ms | How long a category wedge must be hovered before auto-navigating into it. |
 
 ### Layout
 
@@ -48,16 +48,21 @@ Each ring has two settings:
 
 ### Animation
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| **Wedge Anim Speed** | `25` | Speed multiplier for wedge enter/exit animation. Higher = snappier. |
+| Property | Default | Unit | Description |
+|----------|---------|------|-------------|
+| **Wedge Exit Duration** | `130` | ms | Duration of the wedge exit animation when the menu closes or navigates. |
+| **Wedge Anim Speed** | `25` | ×/s | Speed multiplier for wedge enter/exit translation animation. Higher = snappier. |
+| **Highlight Anim Speed** | `14` | ×/s | Speed multiplier for wedge highlight color transition. Higher = snappier. |
+| **Arc Track Speed** | `18` | ×/s | Speed multiplier for the arc indicator tracking the hovered wedge. Higher = snappier. |
+| **Arc Fade Speed** | `10` | ×/s | Speed multiplier for the arc indicator fade in/out. Higher = snappier. |
 
 ### Style
 
-| Property | Description |
-|----------|-------------|
-| **Default Wedge Tint** | Background color for unselected wedges. |
-| **Highlight Wedge Tint** | Background color for the hovered wedge. |
+| Property | Default | Description |
+|----------|---------|-------------|
+| **Icon Picker Size** | `16` | Size of icons in the editor icon picker grid (pixels). |
+| **Default Wedge Tint** | — | Background color for unselected wedges. |
+| **Highlight Wedge Tint** | — | Background color for the hovered wedge. |
 
 ## Item Types
 
@@ -76,6 +81,8 @@ Executes a registered editor command by context and name.
 - **Command Context** - binding context (e.g. `LevelEditor`)
 - **Command Name** - command key within that context (e.g. `PlayInViewport`)
 
+Use the command picker dropdown to browse and search all registered commands.
+
 ### Console Command
 Passes a string to `GEngine->Exec` against the editor world.
 
@@ -92,7 +99,7 @@ Instantiates an Editor Utility Object blueprint and calls its `Run` event.
 - **Object** - soft reference to the Editor Utility Object Blueprint asset
 
 ### Category
-Groups child items into a nested ring. Hovering the wedge for `Category Hover Ms` navigates into the category.
+Groups child items into a nested ring. In hold mode, hovering the wedge for `Category Hover Ms` auto-navigates into it. In tap mode, left-clicking navigates immediately.
 
 - **Children** - nested array of any item types, including further categories
 
