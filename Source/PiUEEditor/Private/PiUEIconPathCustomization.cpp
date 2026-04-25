@@ -1,6 +1,7 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
 #include "PiUEIconPathCustomization.h"
+#include "PiUESettings.h"
 #include "PiUETypes.h"
 #include "Brushes/SlateImageBrush.h"
 #include "DetailWidgetRow.h"
@@ -95,9 +96,7 @@ void FPiUEIconPathCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> I
 void FPiUEIconPathCustomization::ScanIcons()
 {
 	AllIconPaths.Reset();
-	PickerBrushes.Reset();
 
-	const FVector2D IconSize(24.f, 24.f);
 	const TArray<FString> SearchDirs =
 	{
 		FPaths::EngineDir() / TEXT("Content/Editor/Slate/Starship"),
@@ -108,51 +107,67 @@ void FPiUEIconPathCustomization::ScanIcons()
 	{
 		TArray<FString> Found;
 		IFileManager::Get().FindFilesRecursive(Found, *Dir, TEXT("*.svg"), true, false);
-		for (const FString& Path : Found)
-		{
-			AllIconPaths.Add(Path);
-			PickerBrushes.Add(MakeUnique<FSlateVectorImageBrush>(Path, IconSize));
-		}
+		AllIconPaths.Append(Found);
 	}
 }
 
-TSharedRef<SWidget> FPiUEIconPathCustomization::BuildMenuContent()
+TSharedRef<SWidget> FPiUEIconPathCustomization::BuildIconButton(const FString& Path, const FSlateBrush* Brush, const float IconSize)
 {
-	SearchText = FText::GetEmpty();
+	const FString Name = FPaths::GetBaseFilename(Path);
+	return SNew(SButton)
+		.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+		.ToolTipText(FText::FromString(Name))
+		.OnClicked_Lambda([this, Path]() { OnIconSelected(Path); return FReply::Handled(); })
+		.Visibility_Lambda([this, Name]() -> EVisibility
+		{
+			return SearchText.IsEmpty() || Name.Contains(SearchText.ToString(), ESearchCase::IgnoreCase) ? EVisibility::Visible : EVisibility::Collapsed;
+		})
+		[
+			SNew(SBox)
+			.WidthOverride(IconSize)
+			.HeightOverride(IconSize)
+			[
+				SNew(SImage).Image(Brush)
+			]
+		];
+}
+
+TSharedRef<SWidget> FPiUEIconPathCustomization::BuildIconGrid()
+{
+	if (CachedIconGrid.IsValid())
+	{
+		return CachedIconGrid.ToSharedRef();
+	}
+
 	if (AllIconPaths.IsEmpty())
 	{
 		ScanIcons();
 	}
 
+	PickerBrushes.Reset();
+	PickerBrushes.Reserve(AllIconPaths.Num());
+
+	const float IconDim = GetDefault<UPiUESettings>()->IconPickerSize;
 	SAssignNew(IconGrid, SUniformWrapPanel)
 	.HAlign(HAlign_Left)
 	.SlotPadding(FMargin(4.f));
 
-	for (int32 i = 0; i < AllIconPaths.Num(); ++i)
+	for (const FString& Path : AllIconPaths)
 	{
-		const FString Path = AllIconPaths[i];
-		const FSlateBrush* Brush = PickerBrushes[i].Get();
-		const FString Name = FPaths::GetBaseFilename(Path);
+		PickerBrushes.Add(MakeUnique<FSlateVectorImageBrush>(Path, FVector2D(IconDim, IconDim)));
+		IconGrid->AddSlot()[BuildIconButton(Path, PickerBrushes.Last().Get(), IconDim)];
+	}
 
-		IconGrid->AddSlot()
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(FText::FromString(Name))
-			.OnClicked_Lambda([this, Path]() { OnIconSelected(Path); return FReply::Handled(); })
-			.Visibility_Lambda([this, Name]() -> EVisibility
-			{
-				return SearchText.IsEmpty() || Name.Contains(SearchText.ToString(), ESearchCase::IgnoreCase) ? EVisibility::Visible : EVisibility::Collapsed;
-			})
-			[
-				SNew(SBox)
-				.WidthOverride(24.f)
-				.HeightOverride(24.f)
-				[
-					SNew(SImage).Image(Brush)
-				]
-			]
-		];
+	CachedIconGrid = IconGrid;
+	return CachedIconGrid.ToSharedRef();
+}
+
+TSharedRef<SWidget> FPiUEIconPathCustomization::BuildMenuContent()
+{
+	SearchText = FText::GetEmpty();
+	if (CachedIconGrid.IsValid())
+	{
+		IconGrid->Invalidate(EInvalidateWidgetReason::Layout);
 	}
 
 	return SNew(SBox)
@@ -174,7 +189,7 @@ TSharedRef<SWidget> FPiUEIconPathCustomization::BuildMenuContent()
 			SNew(SScrollBox)
 			+ SScrollBox::Slot()
 			[
-				IconGrid.ToSharedRef()
+				BuildIconGrid()
 			]
 		]
 	];
@@ -207,6 +222,7 @@ const FSlateBrush* FPiUEIconPathCustomization::GetPreviewBrush()
 		CachedPreviewPath = CurrentPath;
 		PreviewBrush = CurrentPath.IsEmpty() ? nullptr : MakeUnique<FSlateVectorImageBrush>(CurrentPath, FVector2D(16.f, 16.f));
 	}
+
 	return PreviewBrush.Get();
 }
 
@@ -218,6 +234,7 @@ FText FPiUEIconPathCustomization::GetCurrentIconLabel() const
 	{
 		return LOCTEXT("SelectIconPrompt", "Select icon...");
 	}
+
 	return FText::FromString(FPaths::GetBaseFilename(Path));
 }
 

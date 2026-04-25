@@ -20,9 +20,9 @@ struct PIUE_API FPiUEIconPath
 };
 
 /**
- * Base class for all pie menu items. Subclass via USTRUCT and add via FInstancedStruct.
- * Holds presentation data shared across every item type.
- */
+* Base class for all pie menu items. Subclass via USTRUCT and add via FInstancedStruct.
+* Holds presentation data shared across every item type.
+*/
 USTRUCT(BlueprintType)
 struct PIUE_API FPiUEMenuItemBase
 {

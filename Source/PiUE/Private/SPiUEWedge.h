@@ -43,6 +43,8 @@ public:
 	// End SWidget interface
 
 private:
+	static TSharedRef<SWidget> BuildContent(const FArguments& InArgs);
+
 	bool bHighlighted = false;
 	bool bExiting = false;
 	float HighlightAlpha = 0.f;

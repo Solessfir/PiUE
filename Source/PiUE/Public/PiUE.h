@@ -13,10 +13,9 @@ class FPiUEInputProcessor;
 class FPiUEModule : public IModuleInterface
 {
 public:
-	// Begin IModuleInterface interface
 	virtual void StartupModule() override;
+
 	virtual void ShutdownModule() override;
-	// End IModuleInterface interface
 
 private:
 	TSharedPtr<FPiUEInputProcessor> InputProcessor;

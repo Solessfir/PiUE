@@ -10,6 +10,7 @@ class SComboButton;
 class SSearchBox;
 class SUniformWrapPanel;
 
+/** Property type customization for FPiUEIconPath. Replaces the raw path string with a visual SVG icon grid picker. */
 class FPiUEIconPathCustomization final : public IPropertyTypeCustomization
 {
 public:
@@ -21,6 +22,8 @@ public:
 private:
 	void ScanIcons();
 	TSharedRef<SWidget> BuildMenuContent();
+	TSharedRef<SWidget> BuildIconGrid();
+	TSharedRef<SWidget> BuildIconButton(const FString& Path, const FSlateBrush* Brush, float IconSize);
 	void OnIconSelected(const FString& InPath);
 	void OnSearchTextChanged(const FText& InText);
 	const FSlateBrush* GetPreviewBrush();
@@ -30,6 +33,7 @@ private:
 	TSharedPtr<SComboButton> ComboButton;
 	TSharedPtr<SSearchBox> SearchBox;
 	TSharedPtr<SUniformWrapPanel> IconGrid;
+	TSharedPtr<SWidget> CachedIconGrid;
 	FText SearchText;
 
 	TArray<FString> AllIconPaths;

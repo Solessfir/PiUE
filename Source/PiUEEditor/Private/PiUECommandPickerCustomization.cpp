@@ -160,16 +160,23 @@ void FPiUECommandPickerCustomization::RebuildVisibleRoots()
 		}
 	}
 
-	if (TreeView.IsValid())
-	{
-		TreeView->RequestTreeRefresh();
+	RefreshTree(!bFilterEmpty);
+}
 
-		if (!bFilterEmpty)
+void FPiUECommandPickerCustomization::RefreshTree(const bool bExpandAll)
+{
+	if (!TreeView.IsValid())
+	{
+		return;
+	}
+
+	TreeView->RequestTreeRefresh();
+
+	if (bExpandAll)
+	{
+		for (const TSharedPtr<FPiUECommandPickerNode>& Node : VisibleRootNodes)
 		{
-			for (const TSharedPtr<FPiUECommandPickerNode>& Node : VisibleRootNodes)
-			{
-				TreeView->SetItemExpansion(Node, true);
-			}
+			TreeView->SetItemExpansion(Node, true);
 		}
 	}
 }
@@ -206,6 +213,29 @@ TSharedRef<SWidget> FPiUECommandPickerCustomization::BuildMenuContent()
 	];
 }
 
+static FString BuildChordText(const TSharedPtr<FPiUECommandPickerNode>& InNode)
+{
+	const TSharedRef<const FInputChord> Primary = InNode->Command->GetActiveChord(EMultipleKeyBindingIndex::Primary);
+	const TSharedRef<const FInputChord> Secondary = InNode->Command->GetActiveChord(EMultipleKeyBindingIndex::Secondary);
+
+	FString Result;
+	if (Primary->IsValidChord())
+	{
+		Result = Primary->GetInputText().ToString();
+	}
+
+	if (Secondary->IsValidChord())
+	{
+		if (!Result.IsEmpty())
+		{
+			Result += TEXT("  /  ");
+		}
+		Result += Secondary->GetInputText().ToString();
+	}
+
+	return Result;
+}
+
 TSharedRef<ITableRow> FPiUECommandPickerCustomization::OnGenerateRow(TSharedPtr<FPiUECommandPickerNode> InNode, const TSharedRef<STableViewBase>& InOwnerTable)
 {
 	const bool bIsCommand = InNode->IsCommand();
@@ -224,23 +254,7 @@ TSharedRef<ITableRow> FPiUECommandPickerCustomization::OnGenerateRow(TSharedPtr<
 
 	if (bIsCommand)
 	{
-		const TSharedRef<const FInputChord> Primary = InNode->Command->GetActiveChord(EMultipleKeyBindingIndex::Primary);
-		const TSharedRef<const FInputChord> Secondary = InNode->Command->GetActiveChord(EMultipleKeyBindingIndex::Secondary);
-
-		FString ChordText;
-		if (Primary->IsValidChord())
-		{
-			ChordText = Primary->GetInputText().ToString();
-		}
-		if (Secondary->IsValidChord())
-		{
-			if (!ChordText.IsEmpty())
-			{
-				ChordText += TEXT("  /  ");
-			}
-			ChordText += Secondary->GetInputText().ToString();
-		}
-
+		const FString ChordText = BuildChordText(InNode);
 		if (!ChordText.IsEmpty())
 		{
 			RowBox->AddSlot()

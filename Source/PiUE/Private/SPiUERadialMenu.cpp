@@ -13,21 +13,19 @@
 
 #define LOCTEXT_NAMESPACE "PiUE"
 
-constexpr float WedgeExitDuration = 0.13f;
-constexpr float ArcTrackSpeed = 18.f;
-constexpr float ArcFadeSpeed = 10.f;
-
 void SPiUERadialMenu::Construct(const FArguments& InArgs)
 {
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
 	MenuRadius = Settings->MenuRadius;
 	DeadZoneRadius = Settings->DeadZoneRadius;
+	CachedWedgeExitDuration = Settings->WedgeExitDuration;
+	CachedArcTrackSpeed = Settings->ArcTrackSpeed;
+	CachedArcFadeSpeed = Settings->ArcFadeSpeed;
 	CachedCategoryHoverMs = Settings->CategoryHoverMs;
 
 	MenuCenterAbsPos = InArgs._MenuCenterAbsPos;
 
-	const TArray<FInstancedStruct>* Root = InArgs._RootItems;
-	if (Root)
+	if (const TArray<FInstancedStruct>* Root = InArgs._RootItems)
 	{
 		NavStack.Add(Root);
 	}
@@ -62,7 +60,7 @@ void SPiUERadialMenu::BeginTransition(TFunction<void()> NavAction)
 	}
 
 	PendingNavAction = MoveTemp(NavAction);
-	TransitionCountdown = WedgeExitDuration;
+	TransitionCountdown = CachedWedgeExitDuration / 1000.f;
 	bTransitionPending = true;
 }
 
@@ -122,6 +120,7 @@ void SPiUERadialMenu::AddWedge(const FPiUEMenuItemBase& Base, const FLinearColor
 		{
 			Brush = MakeUnique<FSlateDynamicImageBrush>(FName(*Base.Icon.Path), FVector2D(18.f, 18.f));
 		}
+
 		IconBrushPtr = Brush.Get();
 		DynamicBrushes.Add(MoveTemp(Brush));
 	}
@@ -170,10 +169,12 @@ void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCur
 		{
 			Wedges[HoveredIndex]->SetHighlighted(false);
 		}
+
 		if (Wedges.IsValidIndex(NewHover))
 		{
 			Wedges[NewHover]->SetHighlighted(true);
 		}
+
 		HoveredIndex = NewHover;
 
 		if (NewHover == INDEX_NONE)
@@ -190,11 +191,11 @@ void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCur
 	if (bArcActive)
 	{
 		const float Delta = FMath::FindDeltaAngleRadians(ArcCurrentAngle, ArcTargetAngle);
-		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * ArcTrackSpeed);
+		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcTrackSpeed);
 	}
 
 	const float AlphaTarget = bArcActive ? 1.f : 0.f;
-	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * ArcFadeSpeed);
+	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcFadeSpeed);
 	Panel->UpdateArc(ArcDisplayAlpha, ArcCurrentAngle);
 }
 
@@ -220,6 +221,49 @@ void SPiUERadialMenu::TryExecuteHoveredAction()
 	}
 
 	FPiUEActionDispatcher::Execute(Item);
+}
+
+void SPiUERadialMenu::TickCloseHover(float DeltaTime)
+{
+	if (NavStack.Num() <= 1)
+	{
+		return;
+	}
+
+	CategoryHoverAccum += DeltaTime;
+
+	if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
+	{
+		CategoryHoverAccum = 0.f;
+		CategoryHoverIndex = INDEX_NONE;
+		BeginTransition([this]()
+		{
+			NavStack.Pop();
+			RebuildForCurrentLevel();
+		});
+	}
+}
+
+void SPiUERadialMenu::TickCategoryEnterHover(float DeltaTime)
+{
+	CategoryHoverAccum += DeltaTime;
+	if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
+	{
+		const int32 NavIndex = HoveredIndex;
+		CategoryHoverAccum = 0.f;
+		CategoryHoverIndex = INDEX_NONE;
+		BeginTransition([this, NavIndex]()
+		{
+			const TArray<FInstancedStruct>& Items = *NavStack.Top();
+			if (!Items.IsValidIndex(NavIndex))
+			{
+				return;
+			}
+			const FPiUECategoryItem& Category = Items[NavIndex].Get<FPiUECategoryItem>();
+			NavStack.Add(&Category.Children);
+			RebuildForCurrentLevel();
+		});
+	}
 }
 
 void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
@@ -250,46 +294,11 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 
 	if (Type->IsChildOf(FPiUECloseItem::StaticStruct()))
 	{
-		if (NavStack.Num() <= 1)
-		{
-			return;
-		}
-		CategoryHoverAccum += DeltaTime;
-		if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
-		{
-			CategoryHoverAccum = 0.f;
-			CategoryHoverIndex = INDEX_NONE;
-			BeginTransition([this]()
-			{
-				NavStack.Pop();
-				RebuildForCurrentLevel();
-			});
-		}
-		return;
+		TickCloseHover(DeltaTime);
 	}
-
-	if (!Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
+	else if (Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
 	{
-		return;
-	}
-
-	CategoryHoverAccum += DeltaTime;
-	if (CategoryHoverAccum >= CachedCategoryHoverMs / 1000.0)
-	{
-		const int32 NavIndex = HoveredIndex;
-		CategoryHoverAccum = 0.f;
-		CategoryHoverIndex = INDEX_NONE;
-		BeginTransition([this, NavIndex]()
-		{
-			const TArray<FInstancedStruct>& Items = *NavStack.Top();
-			if (!Items.IsValidIndex(NavIndex))
-			{
-				return;
-			}
-			const FPiUECategoryItem& Category = Items[NavIndex].Get<FPiUECategoryItem>();
-			NavStack.Add(&Category.Children);
-			RebuildForCurrentLevel();
-		});
+		TickCategoryEnterHover(DeltaTime);
 	}
 }
 
@@ -343,6 +352,7 @@ int32 SPiUERadialMenu::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 		bFirstPaintDone = true;
 		return LayerId;
 	}
+
 	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 }
 

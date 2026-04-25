@@ -51,10 +51,16 @@ private:
 	/** Marks current wedges exiting, waits for TransitionCountdown, then runs NavAction and rebuilds. */
 	void BeginTransition(TFunction<void()> NavAction);
 
+	/** Accumulates hover time on a Close wedge and triggers navigate-back on threshold. */
+	void TickCloseHover(float DeltaTime);
+
+	/** Accumulates hover time on a Category wedge and triggers navigate-in on threshold. */
+	void TickCategoryEnterHover(float DeltaTime);
+
 	/** Creates an icon brush (if needed) and a wedge widget, adds both to the panel. */
 	void AddWedge(const FPiUEMenuItemBase& Base, FLinearColor BaseTint);
 
-	/** Navigation stack - each entry points at the items array for a level. */
+	/** Navigation stack. Each pointer is into UPiUESettings CDO or FPiUECategoryItem::Children - valid for the duration of a menu open. */
 	TArray<const TArray<FInstancedStruct>*> NavStack;
 
 	TSharedPtr<SPiUERadialPanel> Panel;
@@ -83,5 +89,8 @@ private:
 	/** Cached settings snapshot values to avoid repeated CDO access. */
 	float MenuRadius = 120.f;
 	float DeadZoneRadius = 25.f;
+	float CachedWedgeExitDuration = 130.f;
+	float CachedArcTrackSpeed = 18.f;
+	float CachedArcFadeSpeed = 10.f;
 	double CachedCategoryHoverMs = 1000.0;
 };

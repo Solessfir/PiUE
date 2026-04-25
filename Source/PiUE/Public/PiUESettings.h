@@ -13,11 +13,11 @@ struct PIUE_API FPiUEMenuRing
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct))
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
 	TArray<FInstancedStruct> Items;
 
 	/** When true, the ring can be summoned anywhere in the editor window, not only the level viewport. */
-	UPROPERTY(EditAnywhere, Config)
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
 	bool bAvailableAnywhere = false;
 };
 
@@ -33,6 +33,12 @@ class PIUE_API UPiUESettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
+	virtual FName GetContainerName() const override { return TEXT("Editor"); }
+
+	virtual FName GetCategoryName() const override { return TEXT("Plugins"); }
+
+	virtual FName GetSectionName() const override { return TEXT("PiUE"); }
+
 	UPROPERTY(EditAnywhere, Config, Category = "Menu")
 	FPiUEMenuRing Ring1;
 
@@ -92,6 +98,10 @@ public:
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 0.f, ClampMax = 100.f), Category = "Layout")
 	float DeadZoneRadius = 25.f;
 
+	/** Duration of the wedge exit animation when the menu closes or navigates. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 50.f, ClampMax = 500.f, ForceUnits = "ms"), Category = "Animation")
+	float WedgeExitDuration = 130.f;
+
 	/** Speed multiplier for wedge enter/exit translation animation. Higher = snappier. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
 	float WedgeAnimSpeed = 25.f;
@@ -100,6 +110,18 @@ public:
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
 	float HighlightAnimSpeed = 14.f;
 
+	/** Speed multiplier for the arc indicator tracking the hovered wedge. Higher = snappier. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 100.f), Category = "Animation")
+	float ArcTrackSpeed = 18.f;
+
+	/** Speed multiplier for the arc indicator fade in/out. Higher = snappier. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
+	float ArcFadeSpeed = 10.f;
+
+	/** Size of icons in the editor icon picker grid. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 16.f, ClampMax = 64.f), Category = "Style")
+	float IconPickerSize = 16.f;
+
 	/** Wedge background tint used when TintOverride alpha is zero. */
 	UPROPERTY(EditAnywhere, Config, Category = "Style")
 	FLinearColor DefaultWedgeTint = FLinearColor(0.05f, 0.05f, 0.05f, 0.85f);
@@ -107,10 +129,4 @@ public:
 	/** Wedge tint applied to the currently highlighted slot. */
 	UPROPERTY(EditAnywhere, Config, Category = "Style")
 	FLinearColor HighlightWedgeTint = FLinearColor(0.1f, 0.5f, 0.9f, 0.95f);
-
-	// Begin UDeveloperSettings
-	virtual FName GetContainerName() const override { return TEXT("Editor"); }
-	virtual FName GetCategoryName() const override { return TEXT("Plugins"); }
-	virtual FName GetSectionName() const override { return TEXT("PiUE"); }
-	// End UDeveloperSettings
 };

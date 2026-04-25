@@ -39,6 +39,7 @@ void SPiUERadialPanel::UpdateArc(const float InAlpha, const float InAngle)
 	{
 		return;
 	}
+
 	ArcAlpha = InAlpha;
 	ArcAngle = InAngle;
 	Invalidate(EInvalidateWidgetReason::Paint);
@@ -101,6 +102,7 @@ int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, const float
 	const float CursorAngle = FMath::Atan2(CursorDelta.X, -CursorDelta.Y);
 	int32 Best = INDEX_NONE;
 	float BestDelta = TNumericLimits<float>::Max();
+
 	for (int32 Index = 0; Index < NumSlots; ++Index)
 	{
 		const float Diff = FMath::Abs(FMath::FindDeltaAngleRadians(ComputeSlotAngle(Index, NumSlots), CursorAngle));
@@ -110,6 +112,7 @@ int32 SPiUERadialPanel::GetSlotAtDelta(const FVector2D& CursorDelta, const float
 			Best = Index;
 		}
 	}
+
 	return Best;
 }
 
@@ -132,11 +135,13 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 	// Overlap 2 segments past start so antialiased line caps are buried under existing geometry, eliminating the seam.
 	CachedRingPoints.Reset();
 	CachedRingPoints.Reserve(RingSegments + 3);
+
 	for (int32 i = 0; i <= RingSegments + 1; ++i)
 	{
 		const float A = (2.f * PI * i) / RingSegments;
 		CachedRingPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 	}
+
 	FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 1, PaintGeo, CachedRingPoints, ESlateDrawEffect::None, FLinearColor(0.15f, 0.15f, 0.15f, 0.9f), true, 4.5f);
 
 	// Highlight arc at the animated angle, faded by ArcAlpha.
@@ -154,11 +159,13 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 		const int32 ArcOverlap = bFullCircle ? 2 : 0;
 		CachedArcPoints.Reset();
 		CachedArcPoints.Reserve(ArcSegments + 1 + ArcOverlap);
+
 		for (int32 i = 0; i <= ArcSegments + ArcOverlap; ++i)
 		{
 			const float A = FMath::Lerp(ArcAngle - HalfArc, ArcAngle + HalfArc, static_cast<float>(i) / ArcSegments);
 			CachedArcPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 		}
+
 		FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 2, PaintGeo, CachedArcPoints, ESlateDrawEffect::None, ArcColor, true, 5.5f);
 	}
 

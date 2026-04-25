@@ -42,6 +42,18 @@ private:
 	/** Spawns the menu host window at the cursor showing the specified ring. */
 	void OpenMenu(const FSlateApplication& SlateApp, const int32 RingIndex);
 
+	/** Returns the topmost normal editor window under the cursor, or nullptr if none found. */
+	static TSharedPtr<SWindow> FindWindowUnderCursor(const FSlateApplication& SlateApp);
+
+	/** Creates the canvas overlay and menu widget and attaches them to the given window. */
+	void AttachMenuOverlay(const TSharedRef<SWindow>& Window, const FVector2D& CursorScreen, int32 RingIndex);
+
+	/** Handles a mouse-button summon press: opens or closes the menu for the given ring. */
+	bool TryHandleMouseSummonDown(FSlateApplication& SlateApp, int32 MouseRingIndex);
+
+	/** Dispatches an LMB confirm or RMB navigate-back while the menu is open in tap mode. Returns whether the event was handled. */
+	bool HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FKey& Button);
+
 	TWeakPtr<SWindow> OverlayWindow;
 	TSharedPtr<SWidget> MenuOverlayWidget;
 	TWeakPtr<SPiUERadialMenu> Menu;

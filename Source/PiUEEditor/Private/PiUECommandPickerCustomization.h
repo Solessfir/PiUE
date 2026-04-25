@@ -12,6 +12,7 @@ class IPropertyHandle;
 class SComboButton;
 class SSearchBox;
 
+/** Tree node used internally by FPiUECommandPickerCustomization. Context nodes hold child command nodes. */
 struct FPiUECommandPickerNode
 {
 	TSharedPtr<FBindingContext> Context;
@@ -21,6 +22,7 @@ struct FPiUECommandPickerNode
 	bool IsCommand() const { return Command.IsValid(); }
 };
 
+/** Property type customization for FPiUEEditorCommandItem. Replaces the raw CommandContext/CommandName fields with a searchable tree picker. */
 class FPiUECommandPickerCustomization final : public IPropertyTypeCustomization
 {
 public:
@@ -32,6 +34,7 @@ public:
 private:
 	void BuildAllNodes();
 	void RebuildVisibleRoots();
+	void RefreshTree(bool bExpandAll);
 	TSharedRef<SWidget> BuildMenuContent();
 	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FPiUECommandPickerNode> InNode, const TSharedRef<STableViewBase>& InOwnerTable);
 	void OnGetChildren(TSharedPtr<FPiUECommandPickerNode> InNode, TArray<TSharedPtr<FPiUECommandPickerNode>>& OutChildren);

@@ -7,9 +7,9 @@
 #include "Layout/Children.h"
 
 /**
- * Lays out child widgets radially around a center point (angle from "up", clockwise).
- *  N == 1: [Top], N == 2: [Right, Left], N == 3: [Top, BR, BL], N == 4: cardinal, N >= 5: equal step
- */
+* Lays out child widgets radially around a center point (angle from "up", clockwise).
+*  N == 1: [Top], N == 2: [Right, Left], N == 3: [Top, BR, BL], N == 4: cardinal, N >= 5: equal step
+*/
 class SPiUERadialPanel : public SPanel
 {
 public:
@@ -22,7 +22,7 @@ public:
 		{}
 	};
 
-	using FScopedWidgetSlotArguments = typename TPanelChildren<FSlot>::FScopedWidgetSlotArguments;
+	using FScopedWidgetSlotArguments = TPanelChildren<FSlot>::FScopedWidgetSlotArguments;
 
 	SLATE_BEGIN_ARGS(SPiUERadialPanel)
 		: _Radius(120.f)
@@ -55,9 +55,9 @@ public:
 	float GetSlotAngle(const int32 SlotIndex) const;
 
 	/**
-	 * Returns the slot index for a cursor delta (cursor minus menu center, in screen space). INDEX_NONE if inside dead zone.
-	 * Does not use cached geometry - safe to call before first layout pass.
-	 */
+	* Returns the slot index for a cursor delta (cursor minus menu center, in screen space). INDEX_NONE if inside dead zone.
+	* Does not use cached geometry - safe to call before first layout pass.
+	*/
 	int32 GetSlotAtDelta(const FVector2D& CursorDelta, const float DeadZoneRadius) const;
 
 	/** Computes the local-space anchor point for a given slot index (used for hit-testing and painting). */
