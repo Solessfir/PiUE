@@ -12,9 +12,6 @@ struct FInstancedStruct;
 class FPiUEActionDispatcher
 {
 public:
-	/**
-	* Runs the appropriate action for the item.
-	* Returns true on a successful dispatch, false if the item type is unsupported or the action cannot run.
-	*/
-	static bool Execute(const FInstancedStruct& Item);
+	/** Runs the item's Execute action. No-op for invalid or navigational items. */
+	static void Execute(const FInstancedStruct& Item);
 };

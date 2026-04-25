@@ -28,6 +28,11 @@ struct PIUE_API FPiUEMenuItemBase
 {
 	GENERATED_BODY()
 
+	/** Executes the item's action. No-op for navigational items (Category, Close). */
+	virtual void Execute() const {}
+
+	virtual ~FPiUEMenuItemBase() = default;
+
 	/** Text drawn on the wedge. Keep it short - long labels overflow. */
 	UPROPERTY(EditAnywhere, Category = "PiUE")
 	FText Label;
@@ -67,6 +72,8 @@ struct PIUE_API FPiUEEditorCommandItem : public FPiUEMenuItemBase
 {
 	GENERATED_BODY()
 
+	virtual void Execute() const override;
+
 	/** Binding context that owns the command (e.g. "LevelEditor"). */
 	UPROPERTY(EditAnywhere, Category = "PiUE")
 	FName CommandContext = NAME_None;
@@ -85,6 +92,8 @@ struct PIUE_API FPiUEConsoleCommandItem : public FPiUEMenuItemBase
 {
 	GENERATED_BODY()
 
+	virtual void Execute() const override;
+
 	/** Console command string passed to GEngine->Exec. */
 	UPROPERTY(EditAnywhere, Meta = (DisplayAfter = "Label"), Category = "PiUE")
 	FString Command;
@@ -97,6 +106,8 @@ USTRUCT(BlueprintType, DisplayName = "Editor Utility Object")
 struct PIUE_API FPiUEEditorUtilityObjectItem : public FPiUEMenuItemBase
 {
 	GENERATED_BODY()
+
+	virtual void Execute() const override;
 
 	/** Editor Utility Object Blueprint to instantiate and run when the wedge is selected. */
 	UPROPERTY(EditAnywhere, Meta = (DisplayThumbnail = false, DisplayAfter = "Label"), Category = "PiUE")
@@ -120,6 +131,8 @@ USTRUCT(BlueprintType, DisplayName = "Editor Utility Widget")
 struct PIUE_API FPiUEEditorUtilityItem : public FPiUEMenuItemBase
 {
 	GENERATED_BODY()
+
+	virtual void Execute() const override;
 
 	/** Editor Utility Widget Blueprint to spawn when the wedge is selected. */
 	UPROPERTY(EditAnywhere, Meta = (DisplayThumbnail = false, DisplayAfter = "Label"), Category = "PiUE")

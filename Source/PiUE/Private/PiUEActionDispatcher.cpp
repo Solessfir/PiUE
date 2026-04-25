@@ -19,140 +19,109 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPiUE, Log, All);
 
-namespace PiUE
+void FPiUEEditorCommandItem::Execute() const
 {
-	static bool ExecuteEditorCommand(const FPiUEEditorCommandItem& Item)
+	if (CommandContext.IsNone() || CommandName.IsNone())
 	{
-		if (Item.CommandContext.IsNone() || Item.CommandName.IsNone())
-		{
-			return false;
-		}
-
-		const TSharedPtr<FUICommandInfo> Info = FInputBindingManager::Get().FindCommandInContext(Item.CommandContext, Item.CommandName);
-		if (!Info.IsValid())
-		{
-			UE_LOGFMT(LogPiUE, Warning, "PiUE: editor command {0}.{1} not found.", Item.CommandContext, Item.CommandName);
-			return false;
-		}
-
-		// Try the Level Editor's global command list. Covers PIE, Simulate, view modes, show flags, and most viewport actions.
-		// Other-context commands (asset editors, etc.) are out of scope for now.
-		if (FModuleManager::Get().IsModuleLoaded("LevelEditor"))
-		{
-			FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
-			const TSharedRef<FUICommandList> Commands = LevelEditorModule.GetGlobalLevelEditorActions();
-			if (Commands->TryExecuteAction(Info.ToSharedRef()))
-			{
-				return true;
-			}
-		}
-
-		// Fallback: try the active viewport's own command list (covers viewport-specific bindings).
-		if (GCurrentLevelEditingViewportClient)
-		{
-			const TSharedPtr<SEditorViewport> ViewportWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
-			if (ViewportWidget.IsValid() && ViewportWidget->GetCommandList()->TryExecuteAction(Info.ToSharedRef()))
-			{
-				return true;
-			}
-		}
-
-		UE_LOGFMT(LogPiUE, Warning, "PiUE: command {0}.{1} not bound on any known command list.", Item.CommandContext, Item.CommandName);
-		return false;
+		return;
 	}
 
-	static bool ExecuteConsoleCommand(const FPiUEConsoleCommandItem& Item)
+	const TSharedPtr<FUICommandInfo> Info = FInputBindingManager::Get().FindCommandInContext(CommandContext, CommandName);
+	if (!Info.IsValid())
 	{
-		if (Item.Command.IsEmpty() || !GEngine)
-		{
-			return false;
-		}
-
-		UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
-		return GEngine->Exec(World, *Item.Command);
+		UE_LOGFMT(LogPiUE, Warning, "PiUE: editor command {0}.{1} not found.", CommandContext, CommandName);
+		return;
 	}
 
-	static bool ExecuteEditorUtilityObject(const FPiUEEditorUtilityObjectItem& Item)
+	// Try the Level Editor's global command list. Covers PIE, Simulate, view modes, show flags, and most viewport actions.
+	// Other-context commands (asset editors, etc.) are out of scope for now.
+	if (FModuleManager::Get().IsModuleLoaded("LevelEditor"))
 	{
-		if (Item.Object.IsNull())
+		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+		const TSharedRef<FUICommandList> Commands = LevelEditorModule.GetGlobalLevelEditorActions();
+		if (Commands->TryExecuteAction(Info.ToSharedRef()))
 		{
-			return false;
+			return;
 		}
+	}
 
-		UEditorUtilityBlueprint* Blueprint = Item.Object.LoadSynchronous();
-		if (!Blueprint)
+	// Fallback: try the active viewport's own command list (covers viewport-specific bindings).
+	if (GCurrentLevelEditingViewportClient)
+	{
+		const TSharedPtr<SEditorViewport> ViewportWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
+		if (ViewportWidget.IsValid() && ViewportWidget->GetCommandList()->TryExecuteAction(Info.ToSharedRef()))
 		{
-			UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityBlueprint {0}.", Item.Object.ToString());
-			return false;
+			return;
 		}
+	}
 
-		UClass* Class = Blueprint->GeneratedClass;
-		if (!Class || !Class->IsChildOf<UEditorUtilityObject>())
-		{
-			UE_LOGFMT(LogPiUE, Warning, "PiUE: EditorUtilityBlueprint {0} has no valid generated class.", Item.Object.ToString());
-			return false;
-		}
+	UE_LOGFMT(LogPiUE, Warning, "PiUE: command {0}.{1} not bound on any known command list.", CommandContext, CommandName);
+}
 
-		UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class);
-		if (!Instance)
-		{
-			return false;
-		}
+void FPiUEConsoleCommandItem::Execute() const
+{
+	if (Command.IsEmpty() || !GEngine)
+	{
+		return;
+	}
 
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	GEngine->Exec(World, *Command);
+}
+
+void FPiUEEditorUtilityObjectItem::Execute() const
+{
+	if (Object.IsNull())
+	{
+		return;
+	}
+
+	UEditorUtilityBlueprint* Blueprint = Object.LoadSynchronous();
+	if (!Blueprint)
+	{
+		UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityBlueprint {0}.", Object.ToString());
+		return;
+	}
+
+	UClass* Class = Blueprint->GeneratedClass;
+	if (!Class || !Class->IsChildOf<UEditorUtilityObject>())
+	{
+		UE_LOGFMT(LogPiUE, Warning, "PiUE: EditorUtilityBlueprint {0} has no valid generated class.", Object.ToString());
+		return;
+	}
+
+	UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class);
+	if (Instance)
+	{
 		Instance->Run();
-		return true;
-	}
-
-	static bool ExecuteEditorUtility(const FPiUEEditorUtilityItem& Item)
-	{
-		if (Item.Widget.IsNull())
-		{
-			return false;
-		}
-
-		UEditorUtilityWidgetBlueprint* WidgetBP = Item.Widget.LoadSynchronous();
-		if (!WidgetBP)
-		{
-			UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityWidgetBlueprint {0}.", Item.Widget.ToString());
-			return false;
-		}
-
-		UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr;
-		if (!Subsystem)
-		{
-			return false;
-		}
-
-		Subsystem->SpawnAndRegisterTab(WidgetBP);
-		return true;
 	}
 }
 
-bool FPiUEActionDispatcher::Execute(const FInstancedStruct& Item)
+void FPiUEEditorUtilityItem::Execute() const
 {
-	const UScriptStruct* Type = Item.GetScriptStruct();
-	if (!Type)
+	if (Widget.IsNull())
 	{
-		return false;
+		return;
 	}
 
-	if (Type->IsChildOf(FPiUEEditorCommandItem::StaticStruct()))
+	UEditorUtilityWidgetBlueprint* WidgetBP = Widget.LoadSynchronous();
+	if (!WidgetBP)
 	{
-		return PiUE::ExecuteEditorCommand(Item.Get<FPiUEEditorCommandItem>());
-	}
-	if (Type->IsChildOf(FPiUEConsoleCommandItem::StaticStruct()))
-	{
-		return PiUE::ExecuteConsoleCommand(Item.Get<FPiUEConsoleCommandItem>());
-	}
-	if (Type->IsChildOf(FPiUEEditorUtilityObjectItem::StaticStruct()))
-	{
-		return PiUE::ExecuteEditorUtilityObject(Item.Get<FPiUEEditorUtilityObjectItem>());
-	}
-	if (Type->IsChildOf(FPiUEEditorUtilityItem::StaticStruct()))
-	{
-		return PiUE::ExecuteEditorUtility(Item.Get<FPiUEEditorUtilityItem>());
+		UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityWidgetBlueprint {0}.", Widget.ToString());
+		return;
 	}
 
-	// Categories are navigational only, not executable.
-	return false;
+	UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr;
+	if (Subsystem)
+	{
+		Subsystem->SpawnAndRegisterTab(WidgetBP);
+	}
+}
+
+void FPiUEActionDispatcher::Execute(const FInstancedStruct& Item)
+{
+	if (Item.IsValid())
+	{
+		Item.Get<FPiUEMenuItemBase>().Execute();
+	}
 }
