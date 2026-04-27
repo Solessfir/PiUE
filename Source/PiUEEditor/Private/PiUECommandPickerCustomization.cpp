@@ -14,15 +14,11 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/STableRow.h"
+#include "PiUEEditorConstants.h"
 
 #define LOCTEXT_NAMESPACE "PiUECommandPickerCustomization"
 
-namespace
-{
-	constexpr float PickerButtonWidth = 280.f;
-	constexpr float MenuWidth = 440.f;
-	constexpr float MenuHeight = 500.f;
-}
+using namespace PiUEEditor;
 
 TSharedRef<IPropertyTypeCustomization> FPiUECommandPickerCustomization::MakeInstance()
 {

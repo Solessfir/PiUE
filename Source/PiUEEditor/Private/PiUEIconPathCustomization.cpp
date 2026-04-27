@@ -19,15 +19,11 @@
 #include "Widgets/Layout/SUniformWrapPanel.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
+#include "PiUEEditorConstants.h"
 
 #define LOCTEXT_NAMESPACE "PiUEIconPathCustomization"
 
-namespace
-{
-	constexpr float PickerButtonWidth = 280.f;
-	constexpr float MenuWidth = 420.f;
-	constexpr float MenuHeight = 500.f;
-}
+using namespace PiUEEditor;
 
 TSharedRef<IPropertyTypeCustomization> FPiUEIconPathCustomization::MakeInstance()
 {
