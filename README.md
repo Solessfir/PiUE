@@ -13,7 +13,7 @@ PiUE supports up to **five independent rings**, each bound to its own hotkey. Pr
 
 By default each ring only opens when the cursor is over the **level viewport**. Enable **Available Anywhere** on a ring to allow it to open in any editor window.
 
-**Ring 1** defaults to **V** and **Mouse 4**. Rings 2 - 5 are unbound by default.
+**Ring 1** defaults to **V**. Rings 2 - 5 are unbound by default.
 
 The menu is unavailable while Play In Editor is active.
 
