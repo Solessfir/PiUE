@@ -264,7 +264,7 @@ bool FPiUEInputProcessor::HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& Pin
 
 bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
-	// Summon via mouse button (e.g. Mouse4 secondary bind).
+	// Summon via mouse button.
 	FInputChord SummonChord;
 	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord);
 	if (MouseRingIndex != INDEX_NONE)
@@ -299,7 +299,7 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 	{
 		if (bMouseTapCloseArmed && Menu.IsValid())
 		{
-			// The viewport's input preprocessor (higher-priority type bucket) consumes ThumbMouseButton Down
+			// The viewport's input preprocessor (higher-priority type bucket) consumes mouse button Down
 			// when the menu overlay is active, so the closing press never reaches HandleMouseButtonDownEvent.
 			// Instead we close on the Up, but skip the first ~80ms window to absorb hardware duplicate Up
 			// events that some mice fire immediately after the real Up.
