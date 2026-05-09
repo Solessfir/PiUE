@@ -2,6 +2,7 @@
 
 #include "SPiUERadialMenu.h"
 #include "Brushes/SlateImageBrush.h"
+#include "Editor.h"
 #include "Framework/Application/SlateApplication.h"
 #include "StructUtils/InstancedStruct.h"
 #include "PiUEActionDispatcher.h"
@@ -12,6 +13,60 @@
 #include "Widgets/SOverlay.h"
 
 #define LOCTEXT_NAMESPACE "PiUE"
+
+EPiUEItemMode SPiUERadialMenu::GetCurrentMode()
+{
+	return (GEditor && GEditor->IsPlaySessionInProgress()) ? EPiUEItemMode::PIE : EPiUEItemMode::Editor;
+}
+
+bool SPiUERadialMenu::ItemPassesFilter(const FInstancedStruct& Item, const EPiUEItemMode Mode)
+{
+	const UScriptStruct* Type = Item.GetScriptStruct();
+	if (!Type || !Type->IsChildOf(FPiUEMenuItemBase::StaticStruct()))
+	{
+		return false;
+	}
+
+	const FPiUEMenuItemBase& Base = Item.Get<FPiUEMenuItemBase>();
+	if ((Base.Mode & static_cast<uint8>(Mode)) == 0)
+	{
+		return false;
+	}
+
+	if (Type->IsChildOf(FPiUECategoryItem::StaticStruct()))
+	{
+		const FPiUECategoryItem& Category = Item.Get<FPiUECategoryItem>();
+		return HasAnyVisibleItem(Category.Children, Mode);
+	}
+
+	return true;
+}
+
+bool SPiUERadialMenu::HasAnyVisibleItem(const TArray<FInstancedStruct>& Items, const EPiUEItemMode Mode)
+{
+	for (const FInstancedStruct& Item : Items)
+	{
+		if (ItemPassesFilter(Item, Mode))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+TArray<const FInstancedStruct*> SPiUERadialMenu::FilterToPointers(const TArray<FInstancedStruct>& Source) const
+{
+	TArray<const FInstancedStruct*> Result;
+	Result.Reserve(Source.Num());
+	for (const FInstancedStruct& Item : Source)
+	{
+		if (ItemPassesFilter(Item, CurrentMode))
+		{
+			Result.Add(&Item);
+		}
+	}
+	return Result;
+}
 
 void SPiUERadialMenu::Construct(const FArguments& InArgs)
 {
@@ -24,10 +79,11 @@ void SPiUERadialMenu::Construct(const FArguments& InArgs)
 	CachedCategoryHoverMs = Settings->CategoryHoverMs;
 
 	MenuCenterAbsPos = InArgs._MenuCenterAbsPos;
+	CurrentMode = GetCurrentMode();
 
 	if (const TArray<FInstancedStruct>* Root = InArgs._RootItems)
 	{
-		NavStack.Add(Root);
+		NavStack.Add(FilterToPointers(*Root));
 	}
 
 	ChildSlot
@@ -82,17 +138,21 @@ void SPiUERadialMenu::RebuildForCurrentLevel()
 	Panel->UpdateArc(0.f, ArcCurrentAngle);
 
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
-	const TArray<FInstancedStruct>& Items = *NavStack.Top();
+	const TArray<const FInstancedStruct*>& Items = NavStack.Top();
 	DynamicBrushes.Reserve(Items.Num());
 
-	for (const FInstancedStruct& Item : Items)
+	for (const FInstancedStruct* Item : Items)
 	{
-		const UScriptStruct* Type = Item.GetScriptStruct();
+		if (!Item)
+		{
+			continue;
+		}
+		const UScriptStruct* Type = Item->GetScriptStruct();
 		if (!Type || !Type->IsChildOf(FPiUEMenuItemBase::StaticStruct()))
 		{
 			continue;
 		}
-		const FPiUEMenuItemBase& Base = Item.Get<FPiUEMenuItemBase>();
+		const FPiUEMenuItemBase& Base = Item->Get<FPiUEMenuItemBase>();
 		const FLinearColor BaseTint = Base.BackgroundTint.IsSet() ? Base.BackgroundTint.GetValue() : Settings->DefaultWedgeTint;
 		AddWedge(Base, BaseTint);
 	}
@@ -206,13 +266,13 @@ void SPiUERadialMenu::TryExecuteHoveredAction()
 		return;
 	}
 
-	const TArray<FInstancedStruct>& Items = *NavStack.Top();
-	if (!Items.IsValidIndex(HoveredIndex))
+	const TArray<const FInstancedStruct*>& Items = NavStack.Top();
+	if (!Items.IsValidIndex(HoveredIndex) || !Items[HoveredIndex])
 	{
 		return;
 	}
 
-	const FInstancedStruct& Item = Items[HoveredIndex];
+	const FInstancedStruct& Item = *Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
 
 	if (Type && (Type->IsChildOf(FPiUECloseItem::StaticStruct()) || Type->IsChildOf(FPiUECategoryItem::StaticStruct())))
@@ -254,13 +314,13 @@ void SPiUERadialMenu::TickCategoryEnterHover(float DeltaTime)
 		CategoryHoverIndex = INDEX_NONE;
 		BeginTransition([this, NavIndex]()
 		{
-			const TArray<FInstancedStruct>& Items = *NavStack.Top();
-			if (!Items.IsValidIndex(NavIndex))
+			const TArray<const FInstancedStruct*>& Items = NavStack.Top();
+			if (!Items.IsValidIndex(NavIndex) || !Items[NavIndex])
 			{
 				return;
 			}
-			const FPiUECategoryItem& Category = Items[NavIndex].Get<FPiUECategoryItem>();
-			NavStack.Add(&Category.Children);
+			const FPiUECategoryItem& Category = Items[NavIndex]->Get<FPiUECategoryItem>();
+			NavStack.Add(FilterToPointers(Category.Children));
 			RebuildForCurrentLevel();
 		});
 	}
@@ -279,14 +339,13 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 		return;
 	}
 
-	const TArray<FInstancedStruct>& Items = *NavStack.Top();
-	if (!Items.IsValidIndex(HoveredIndex))
+	const TArray<const FInstancedStruct*>& Items = NavStack.Top();
+	if (!Items.IsValidIndex(HoveredIndex) || !Items[HoveredIndex])
 	{
 		return;
 	}
 
-	const FInstancedStruct& Item = Items[HoveredIndex];
-	const UScriptStruct* Type = Item.GetScriptStruct();
+	const UScriptStruct* Type = Items[HoveredIndex]->GetScriptStruct();
 	if (!Type)
 	{
 		return;
@@ -309,13 +368,13 @@ bool SPiUERadialMenu::ConfirmSelection()
 		return true;
 	}
 
-	const TArray<FInstancedStruct>& Items = *NavStack.Top();
-	if (!Items.IsValidIndex(HoveredIndex))
+	const TArray<const FInstancedStruct*>& Items = NavStack.Top();
+	if (!Items.IsValidIndex(HoveredIndex) || !Items[HoveredIndex])
 	{
 		return true;
 	}
 
-	const FInstancedStruct& Item = Items[HoveredIndex];
+	const FInstancedStruct& Item = *Items[HoveredIndex];
 	const UScriptStruct* Type = Item.GetScriptStruct();
 
 	if (Type && Type->IsChildOf(FPiUECloseItem::StaticStruct()))
@@ -328,13 +387,13 @@ bool SPiUERadialMenu::ConfirmSelection()
 		const int32 ClickedIndex = HoveredIndex;
 		BeginTransition([this, ClickedIndex]()
 		{
-			const TArray<FInstancedStruct>& Items = *NavStack.Top();
-			if (!Items.IsValidIndex(ClickedIndex))
+			const TArray<const FInstancedStruct*>& InnerItems = NavStack.Top();
+			if (!InnerItems.IsValidIndex(ClickedIndex) || !InnerItems[ClickedIndex])
 			{
 				return;
 			}
-			const FPiUECategoryItem& Category = Items[ClickedIndex].Get<FPiUECategoryItem>();
-			NavStack.Add(&Category.Children);
+			const FPiUECategoryItem& Category = InnerItems[ClickedIndex]->Get<FPiUECategoryItem>();
+			NavStack.Add(FilterToPointers(Category.Children));
 			RebuildForCurrentLevel();
 		});
 		return false;

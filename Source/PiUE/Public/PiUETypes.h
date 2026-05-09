@@ -9,6 +9,17 @@
 class UEditorUtilityBlueprint;
 class UEditorUtilityWidgetBlueprint;
 
+/** Bitmask flags controlling when an item is visible in the radial menu. */
+UENUM(Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+enum class EPiUEItemMode : uint8
+{
+	None   = 0       UMETA(Hidden),
+	Editor = 1 << 0  UMETA(DisplayName = "Editor"),
+	PIE    = 1 << 1  UMETA(DisplayName = "PIE / Game"),
+};
+
+ENUM_CLASS_FLAGS(EPiUEItemMode);
+
 /** Wrapper for a path to a Slate SVG icon. Displayed via a visual picker in the editor. */
 USTRUCT(BlueprintType)
 struct PIUE_API FPiUEIconPath
@@ -48,6 +59,10 @@ struct PIUE_API FPiUEMenuItemBase
 	/** Renders the label in bold. */
 	UPROPERTY(EditAnywhere, Category = "PiUE|Style")
 	bool bBold = false;
+
+	/** When this item is visible - Editor or PIE. Defaults to both. */
+	UPROPERTY(EditAnywhere, Meta = (Bitmask, BitmaskEnum = "/Script/PiUE.EPiUEItemMode"), Category = "PiUE")
+	uint8 Mode = static_cast<uint8>(EPiUEItemMode::Editor) | static_cast<uint8>(EPiUEItemMode::PIE);
 };
 
 /**

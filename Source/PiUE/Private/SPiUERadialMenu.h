@@ -8,6 +8,7 @@
 
 struct FInstancedStruct;
 struct FPiUEMenuItemBase;
+enum class EPiUEItemMode : uint8;
 class SPiUERadialPanel;
 class SPiUEWedge;
 
@@ -26,6 +27,15 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+
+	/** Returns the current execution mode (Editor or PIE), used for filtering items at summon time. */
+	static EPiUEItemMode GetCurrentMode();
+
+	/** Returns true if the item is visible in the given mode. Categories pass only if at least one descendant passes. */
+	static bool ItemPassesFilter(const FInstancedStruct& Item, EPiUEItemMode Mode);
+
+	/** Returns true if any item in the array (recursively, for categories) is visible in the given mode. */
+	static bool HasAnyVisibleItem(const TArray<FInstancedStruct>& Items, EPiUEItemMode Mode);
 
 	/** Confirms the currently highlighted wedge. Enters categories, dispatches leaf items, returns true if the menu should close. */
 	bool ConfirmSelection();
@@ -60,8 +70,14 @@ private:
 	/** Creates an icon brush (if needed) and a wedge widget, adds both to the panel. */
 	void AddWedge(const FPiUEMenuItemBase& Base, FLinearColor BaseTint);
 
-	/** Navigation stack. Each pointer is into UPiUESettings CDO or FPiUECategoryItem::Children - valid for the duration of a menu open. */
-	TArray<const TArray<FInstancedStruct>*> NavStack;
+	/** Builds a filtered pointer list from Source, dropping items that fail the current mode filter. */
+	TArray<const FInstancedStruct*> FilterToPointers(const TArray<FInstancedStruct>& Source) const;
+
+	/** Navigation stack of filtered item pointers. Each level holds only items visible in CurrentMode (categories with no passing descendants are dropped). */
+	TArray<TArray<const FInstancedStruct*>> NavStack;
+
+	/** Snapshot of execution mode at menu open. Drives item visibility filtering. */
+	EPiUEItemMode CurrentMode;
 
 	TSharedPtr<SPiUERadialPanel> Panel;
 	TArray<TSharedPtr<SPiUEWedge>> Wedges;

@@ -16,9 +16,9 @@ struct PIUE_API FPiUEMenuRing
 	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
 	TArray<FInstancedStruct> Items;
 
-	/** When true, the ring can be summoned anywhere in the editor window, not only the level viewport. */
+	/** When true, the ring only opens when the cursor is over the level viewport (or PIE viewport during play). When false, it opens in any editor window. */
 	UPROPERTY(EditAnywhere, Config, Category = "Menu")
-	bool bAvailableAnywhere = false;
+	bool bViewportOnly = true;
 };
 
 /**
@@ -68,17 +68,17 @@ public:
 		}
 	}
 
-	/** Returns true if the ring at the given index (0-4) can be summoned in any editor window, not only the level viewport. */
-	bool IsRingAvailableAnywhere(const int32 RingIndex) const
+	/** Returns true if the ring at the given index (0-4) is restricted to the level / PIE viewport. */
+	bool IsRingViewportOnly(const int32 RingIndex) const
 	{
 		switch (RingIndex)
 		{
-			case 0: return Ring1.bAvailableAnywhere;
-			case 1: return Ring2.bAvailableAnywhere;
-			case 2: return Ring3.bAvailableAnywhere;
-			case 3: return Ring4.bAvailableAnywhere;
-			case 4: return Ring5.bAvailableAnywhere;
-			default: return false;
+			case 0: return Ring1.bViewportOnly;
+			case 1: return Ring2.bViewportOnly;
+			case 2: return Ring3.bViewportOnly;
+			case 3: return Ring4.bViewportOnly;
+			case 4: return Ring5.bViewportOnly;
+			default: return true;
 		}
 	}
 
@@ -88,7 +88,7 @@ public:
 
 	/** How long a category wedge must be hovered before auto-navigating into it. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 100.0, ClampMax = 5000.0, ForceUnits = "ms"), Category = "Input")
-	double CategoryHoverMs = 1000.0;
+	double CategoryHoverMs = 300.0;
 
 	/** Radius of the wedge ring in screen pixels. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 40.f, ClampMax = 400.f), Category = "Layout")

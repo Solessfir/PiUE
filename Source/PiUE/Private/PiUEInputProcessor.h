@@ -33,11 +33,11 @@ private:
 	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Returns INDEX_NONE if no match. */
 	static int32 FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord);
 
-	/** Gates summon. bAvailableAnywhere=true: any editor window (text fields excluded). false: level viewport only. */
-	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bAvailableAnywhere);
+	/** Gates summon. bViewportOnly=true: target viewport only. false: any editor window (text fields excluded). */
+	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bViewportOnly);
 
-	/** Returns true if the topmost normal window under the cursor is the level viewport window. */
-	static bool IsLevelViewportTopmost(const FSlateApplication& SlateApp);
+	/** Returns true if the topmost normal window under the cursor is the target viewport window (level viewport in editor, PIE viewport during play). */
+	static bool IsTargetViewportTopmost(const FSlateApplication& SlateApp);
 
 	/** Spawns the menu host window at the cursor showing the specified ring. */
 	void OpenMenu(const FSlateApplication& SlateApp, const int32 RingIndex);

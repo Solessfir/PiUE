@@ -1,6 +1,8 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
 #include "PiUEInputProcessor.h"
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Commands/InputBindingManager.h"
 #include "Framework/Commands/InputChord.h"
@@ -9,10 +11,12 @@
 #include "LevelEditorViewport.h"
 #include "PiUECommands.h"
 #include "PiUESettings.h"
+#include "PiUETypes.h"
 #include "SEditorViewport.h"
 #include "SPiUERadialMenu.h"
 #include "SPiUERadialPanel.h"
 #include "Widgets/SCanvas.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
 int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
@@ -64,7 +68,7 @@ TSharedPtr<SWindow> FPiUEInputProcessor::FindWindowUnderCursor(const FSlateAppli
 	return nullptr;
 }
 
-bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, const bool bAvailableAnywhere)
+bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, const bool bViewportOnly)
 {
 	const TSharedPtr<SWidget> FocusedWidget = SlateApp.GetKeyboardFocusedWidget();
 	if (FocusedWidget.IsValid())
@@ -76,16 +80,37 @@ bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, c
 		}
 	}
 
-	if (bAvailableAnywhere)
+	if (!bViewportOnly)
 	{
 		return FindWindowUnderCursor(SlateApp).IsValid();
 	}
 
-	return IsLevelViewportTopmost(SlateApp);
+	return IsTargetViewportTopmost(SlateApp);
 }
 
-bool FPiUEInputProcessor::IsLevelViewportTopmost(const FSlateApplication& SlateApp)
+bool FPiUEInputProcessor::IsTargetViewportTopmost(const FSlateApplication& SlateApp)
 {
+	const TSharedPtr<SWindow> Cursor = FindWindowUnderCursor(SlateApp);
+	if (!Cursor.IsValid())
+	{
+		return false;
+	}
+
+	const FVector2D CursorPos = SlateApp.GetCursorPos();
+
+	// PIE active: cursor must be over the actual game viewport widget area, not just its host window.
+	// In "Selected Viewport" PIE the game viewport widget lives inside the main editor window alongside
+	// other panels - a window-level check would falsely match cursor over Outliner / Details / etc.
+	if (GEditor && GEditor->IsPlaySessionInProgress() && GEngine && GEngine->GameViewport)
+	{
+		const TSharedPtr<SViewport> GameVPWidget = GEngine->GameViewport->GetGameViewportWidget();
+		if (GameVPWidget.IsValid() && GameVPWidget->GetCachedGeometry().IsUnderLocation(CursorPos))
+		{
+			return true;
+		}
+		// Fall through: even in PIE, the user may want the level viewport to also count as a target.
+	}
+
 	if (!GCurrentLevelEditingViewportClient)
 	{
 		return false;
@@ -97,13 +122,7 @@ bool FPiUEInputProcessor::IsLevelViewportTopmost(const FSlateApplication& SlateA
 		return false;
 	}
 
-	const TSharedPtr<SWindow> LVPWindow = FSlateApplication::Get().FindWidgetWindow(LVPWidget.ToSharedRef());
-	if (!LVPWindow.IsValid())
-	{
-		return false;
-	}
-
-	return FindWindowUnderCursor(SlateApp) == LVPWindow;
+	return LVPWidget->GetCachedGeometry().IsUnderLocation(CursorPos);
 }
 
 void FPiUEInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -160,12 +179,14 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return true;
 	}
 
-	if (!IsViewportFocused(SlateApp, GetDefault<UPiUESettings>()->IsRingAvailableAnywhere(RingIndex)))
+	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
+	const TArray<FInstancedStruct>* RingItems = Settings->GetRingItems(RingIndex);
+	if (!RingItems || !SPiUERadialMenu::HasAnyVisibleItem(*RingItems, SPiUERadialMenu::GetCurrentMode()))
 	{
 		return false;
 	}
 
-	if (GEditor && GEditor->IsPlaySessionInProgress())
+	if (!IsViewportFocused(SlateApp, Settings->IsRingViewportOnly(RingIndex)))
 	{
 		return false;
 	}
@@ -217,11 +238,6 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 
 bool FPiUEInputProcessor::TryHandleMouseSummonDown(FSlateApplication& SlateApp, const int32 MouseRingIndex)
 {
-	if (GEditor && GEditor->IsPlaySessionInProgress())
-	{
-		return Menu.IsValid();
-	}
-
 	if (Menu.IsValid())
 	{
 		bSummonKeyHeld = false;
@@ -229,7 +245,14 @@ bool FPiUEInputProcessor::TryHandleMouseSummonDown(FSlateApplication& SlateApp, 
 		return true;
 	}
 
-	if (!bSummonKeyHeld && IsViewportFocused(SlateApp, GetDefault<UPiUESettings>()->IsRingAvailableAnywhere(MouseRingIndex)))
+	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
+	const TArray<FInstancedStruct>* RingItems = Settings->GetRingItems(MouseRingIndex);
+	if (!RingItems || !SPiUERadialMenu::HasAnyVisibleItem(*RingItems, SPiUERadialMenu::GetCurrentMode()))
+	{
+		return false;
+	}
+
+	if (!bSummonKeyHeld && IsViewportFocused(SlateApp, Settings->IsRingViewportOnly(MouseRingIndex)))
 	{
 		bSummonKeyHeld = true;
 		PressStartTime = FPlatformTime::Seconds();
