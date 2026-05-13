@@ -6,7 +6,6 @@
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Widgets/SCompoundWidget.h"
 
-class SBorder;
 struct FSlateBrush;
 
 /**
@@ -36,7 +35,7 @@ public:
 	void SetExiting();
 
 	/** Sets the radial direction and distance used for the enter/exit translation animation. Call after all slots are added so angles are final. */
-	void SetEnterDirection(const FVector2D InOutwardDir, const float InRadius);
+	void SetEnterDirection(const FVector2D& InOutwardDir, const float InRadius);
 
 	// Begin SWidget interface
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
@@ -57,6 +56,4 @@ private:
 	float CachedHighlightAnimSpeed = 14.f;
 
 	TUniquePtr<FSlateRoundedBoxBrush> AnimBrush;
-
-	TSharedPtr<SBorder> BorderWidget;
 };

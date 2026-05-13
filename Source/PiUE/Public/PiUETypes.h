@@ -8,6 +8,7 @@
 
 class UEditorUtilityBlueprint;
 class UEditorUtilityWidgetBlueprint;
+struct FSlateBrush;
 
 /** Bitmask flags controlling when an item is visible in the radial menu. */
 UENUM(Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
@@ -73,8 +74,12 @@ struct PIUE_API FPiUECategoryItem : public FPiUEMenuItemBase
 {
 	GENERATED_BODY()
 
+	/** When true, this category's Label is drawn as the menu title above the center ring while inside it. */
+	UPROPERTY(EditAnywhere, Meta = (DisplayAfter = "Label"), Category = "PiUE")
+	bool bUseLabelAsTitle = false;
+
 	/** Child items displayed when this category is entered. */
-	UPROPERTY(EditAnywhere, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct, DisplayAfter = "Label"), Category = "PiUE")
+	UPROPERTY(EditAnywhere, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct, DisplayAfter = "bUseLabelAsTitle"), Category = "PiUE")
 	TArray<FInstancedStruct> Children;
 };
 
@@ -152,4 +157,29 @@ struct PIUE_API FPiUEEditorUtilityItem : public FPiUEMenuItemBase
 	/** Editor Utility Widget Blueprint to spawn when the wedge is selected. */
 	UPROPERTY(EditAnywhere, Meta = (DisplayThumbnail = false, DisplayAfter = "Label"), Category = "PiUE")
 	TSoftObjectPtr<UEditorUtilityWidgetBlueprint> Widget;
+};
+
+/**
+* Inline-expanding spread that emits one wedge for the Level plus N wedges for the currently-open
+* asset editors and standalone tabs (Project Settings, Editor Preferences). Tabs are sorted by the
+* engine's last-activation timestamp (same signal used by the Ctrl+Tab dialog). Closed tabs do not
+* appear. Replaces itself with up to MaxCount consecutive wedges in the parent ring at its array
+* position. No nested user-facing item types - generated wedges are runtime-only.
+*/
+USTRUCT(BlueprintType, DisplayName = "Open Tabs")
+struct PIUE_API FPiUEOpenTabsItem : public FPiUEMenuItemBase
+{
+	GENERATED_BODY()
+
+	/** Total wedges this item emits, including the Level wedge. Clamped 1-12. Default 6 = Level + up to 5 tabs. */
+	UPROPERTY(EditAnywhere, Meta = (ClampMin = 1, ClampMax = 12, DisplayAfter = "Label"), Category = "PiUE")
+	int32 MaxCount = 6;
+
+	/** When false: Level first, tabs newest-to-oldest after. When true: tabs oldest-to-newest, Level last. */
+	UPROPERTY(EditAnywhere, Category = "PiUE")
+	bool bReversed = false;
+
+	/** When true, generated wedges show the source tab's icon next to the label. */
+	UPROPERTY(EditAnywhere, Category = "PiUE")
+	bool bShowIcons = true;
 };

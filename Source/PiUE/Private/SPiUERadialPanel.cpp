@@ -1,8 +1,11 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
 #include "SPiUERadialPanel.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Layout/ArrangedChildren.h"
 #include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
 
 SPiUERadialPanel::SPiUERadialPanel()
 	: Children(this)
@@ -33,6 +36,17 @@ void SPiUERadialPanel::SetRadius(const float InRadius)
 	Invalidate(EInvalidateWidgetReason::Layout);
 }
 
+void SPiUERadialPanel::SetTitle(const FText& InTitle)
+{
+	if (Title.EqualTo(InTitle))
+	{
+		return;
+	}
+
+	Title = InTitle;
+	Invalidate(EInvalidateWidgetReason::Paint);
+}
+
 void SPiUERadialPanel::UpdateArc(const float InAlpha, const float InAngle)
 {
 	if (ArcAlpha == InAlpha && ArcAngle == InAngle)
@@ -59,23 +73,19 @@ float SPiUERadialPanel::ComputeSlotAngle(const int32 SlotIndex, const int32 Slot
 
 	switch (SlotCount)
 	{
-	case 1:
-		return 0.f;
-
-	case 2:
-		return (SlotIndex == 0) ? HALF_PI : -HALF_PI;
-
-	case 3:
+		case 1:
+			return 0.f;
+		case 2:
+			return SlotIndex == 0 ? HALF_PI : -HALF_PI;
+		case 3:
 		{
 			constexpr float Angles3[3] = {0.f, 2.f * PI / 3.f, -2.f * PI / 3.f};
 			return Angles3[SlotIndex % 3];
 		}
-
-	case 4:
-		return static_cast<float>(SlotIndex) * HALF_PI;
-
-	default:
-		return (2.f * PI / static_cast<float>(SlotCount)) * static_cast<float>(SlotIndex);
+		case 4:
+			return static_cast<float>(SlotIndex) * HALF_PI;
+		default:
+			return (2.f * PI / static_cast<float>(SlotCount)) * static_cast<float>(SlotIndex);
 	}
 }
 
@@ -133,16 +143,16 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 	constexpr int32 RingSegments = 48;
 
 	// Overlap 2 segments past start so antialiased line caps are buried under existing geometry, eliminating the seam.
-	CachedRingPoints.Reset();
-	CachedRingPoints.Reserve(RingSegments + 3);
+	ScratchRingPoints.Reset();
+	ScratchRingPoints.Reserve(RingSegments + 3);
 
 	for (int32 i = 0; i <= RingSegments + 1; ++i)
 	{
 		const float A = (2.f * PI * i) / RingSegments;
-		CachedRingPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
+		ScratchRingPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 	}
 
-	FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 1, PaintGeo, CachedRingPoints, ESlateDrawEffect::None, FLinearColor(0.15f, 0.15f, 0.15f, 0.9f), true, 4.5f);
+	FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 1, PaintGeo, ScratchRingPoints, ESlateDrawEffect::None, FLinearColor(0.15f, 0.15f, 0.15f, 0.9f), true, 4.5f);
 
 	// Highlight arc at the animated angle, faded by ArcAlpha.
 	const int32 NumSlots = Children.Num();
@@ -157,16 +167,31 @@ int32 SPiUERadialPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 		// Full-circle arc (single slot): overlap 2 segments past start to bury end cap under existing geometry.
 		const bool bFullCircle = HalfArc >= PI;
 		const int32 ArcOverlap = bFullCircle ? 2 : 0;
-		CachedArcPoints.Reset();
-		CachedArcPoints.Reserve(ArcSegments + 1 + ArcOverlap);
+		ScratchArcPoints.Reset();
+		ScratchArcPoints.Reserve(ArcSegments + 1 + ArcOverlap);
 
 		for (int32 i = 0; i <= ArcSegments + ArcOverlap; ++i)
 		{
 			const float A = FMath::Lerp(ArcAngle - HalfArc, ArcAngle + HalfArc, static_cast<float>(i) / ArcSegments);
-			CachedArcPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
+			ScratchArcPoints.Add(Center + FVector2D(FMath::Sin(A) * RingRadius, -FMath::Cos(A) * RingRadius));
 		}
 
-		FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 2, PaintGeo, CachedArcPoints, ESlateDrawEffect::None, ArcColor, true, 5.5f);
+		FSlateDrawElement::MakeLines(OutDrawElements, ChildLayer + 2, PaintGeo, ScratchArcPoints, ESlateDrawEffect::None, ArcColor, true, 5.5f);
+	}
+
+	if (!Title.IsEmpty())
+	{
+		const FSlateFontInfo TitleFont = FCoreStyle::Get().GetFontStyle("EmbossedText");
+		const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+		const FString TitleString = Title.ToString();
+		const FVector2D TextSize = FontMeasure->Measure(TitleString, TitleFont);
+		// Sit above the small center ring with a small visual gap.
+		constexpr float TitleGap = 6.f;
+		const FVector2D TextPos(Center.X - TextSize.X * 0.5f, Center.Y - RingRadius - TextSize.Y - TitleGap);
+		const FVector2D ShadowOffset(0.0, 1.0);
+		FSlateDrawElement::MakeText(OutDrawElements, ChildLayer + 2, AllottedGeometry.ToPaintGeometry(TextSize, FSlateLayoutTransform(TextPos + ShadowOffset)), TitleString, TitleFont, ESlateDrawEffect::None, FLinearColor(0.f, 0.f, 0.f, 0.75f));
+		FSlateDrawElement::MakeText(OutDrawElements, ChildLayer + 3, AllottedGeometry.ToPaintGeometry(TextSize, FSlateLayoutTransform(TextPos)), TitleString, TitleFont, ESlateDrawEffect::None, FLinearColor(0.85f, 0.85f, 0.85f, 1.f));
+		return ChildLayer + 3;
 	}
 
 	return ChildLayer + 2;

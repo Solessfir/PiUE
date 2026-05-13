@@ -3,14 +3,45 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PiUETypes.h"
 #include "Styling/SlateBrush.h"
 #include "Widgets/SCompoundWidget.h"
 
-struct FInstancedStruct;
-struct FPiUEMenuItemBase;
-enum class EPiUEItemMode : uint8;
 class SPiUERadialPanel;
 class SPiUEWedge;
+struct FInstancedStruct;
+struct FPiUEMenuItemBase;
+struct FPiUEOpenTabsItem;
+
+/** What kind of action a wedge dispatches when confirmed. Drives selection logic in the menu. */
+enum class EPiUEWedgeKind : uint8
+{
+	Leaf,      // run Action and close
+	Category,  // navigate into CategoryChildren on enter
+	Close      // navigate back one level
+};
+
+/**
+* Self-contained wedge description: everything the menu needs to render and dispatch one slot.
+* Built per-rebuild from either a source FInstancedStruct (static items) or an Open Tabs spread (dynamic).
+*/
+struct FPiUEWedgeEntry
+{
+	FText Label;
+	const FSlateBrush* Icon = nullptr;
+	bool bBold = false;
+	FLinearColor Tint = FLinearColor::Black;
+	EPiUEWedgeKind Kind = EPiUEWedgeKind::Leaf;
+
+	/** Invoked on confirm for Leaf wedges. Empty for Category / Close. */
+	TFunction<void()> Action;
+
+	/** Source children array for Category wedges. Stable pointer into Settings CDO; nullptr otherwise. */
+	const TArray<FInstancedStruct>* CategoryChildren = nullptr;
+
+	/** Category-only: when true, this wedge's Label is pushed as the menu title on enter. */
+	bool bUseLabelAsTitle = false;
+};
 
 /**
 * Root widget for the PiUE radial menu. Hosts a radial panel of wedges.
@@ -24,6 +55,8 @@ public:
 		SLATE_ARGUMENT(const TArray<FInstancedStruct>*, RootItems)
 		/** Absolute screen position of the cursor when the menu was opened. Used as the dead-zone center. */
 		SLATE_ARGUMENT(FVector2D, MenuCenterAbsPos)
+		/** Title drawn above the small center ring at root level. Sub-rings show the entered category's Label instead. Empty = no title. */
+		SLATE_ARGUMENT(FText, RootTitle)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -55,7 +88,7 @@ public:
 	// End SWidget interface
 
 private:
-	/** Rebuilds the radial panel from the items on top of the stack. */
+	/** Rebuilds the radial panel from the source items on top of the stack. */
 	void RebuildForCurrentLevel();
 
 	/** Marks current wedges exiting, waits for TransitionCountdown, then runs NavAction and rebuilds. */
@@ -67,21 +100,40 @@ private:
 	/** Accumulates hover time on a Category wedge and triggers navigate-in on threshold. */
 	void TickCategoryEnterHover(float DeltaTime);
 
-	/** Creates an icon brush (if needed) and a wedge widget, adds both to the panel. */
-	void AddWedge(const FPiUEMenuItemBase& Base, FLinearColor BaseTint);
+	/**
+	* Builds the wedge list for one menu level from a source items array.
+	* Filters by current mode, expands FPiUEOpenTabsItem inline, and converts each surviving item into an FPiUEWedgeEntry.
+	* Allocates dynamic brushes (for Icon SVG / dynamic image paths) into DynamicBrushes for the lifetime of this level.
+	*/
+	void BuildLevelEntries(const TArray<FInstancedStruct>& Source, TArray<FPiUEWedgeEntry>& OutEntries);
 
-	/** Builds a filtered pointer list from Source, dropping items that fail the current mode filter. */
-	TArray<const FInstancedStruct*> FilterToPointers(const TArray<FInstancedStruct>& Source) const;
+	/** Appends Level + open-tab wedges generated from an Open Tabs spread to OutEntries. */
+	static void ExpandOpenTabs(const FPiUEOpenTabsItem& Spread, TArray<FPiUEWedgeEntry>& OutEntries);
 
-	/** Navigation stack of filtered item pointers. Each level holds only items visible in CurrentMode (categories with no passing descendants are dropped). */
-	TArray<TArray<const FInstancedStruct*>> NavStack;
+	/** Resolves an icon brush for a base item (runtime override, then dynamic SVG / image, then null). */
+	const FSlateBrush* ResolveItemIcon(const FPiUEMenuItemBase& Base);
+
+	/** Adds a wedge widget to the panel using the entry's visual properties. */
+	void AddWedgeForEntry(const FPiUEWedgeEntry& Entry);
+
+	/** Navigation stack of source pointers. Each level points to a stable TArray<FInstancedStruct> (Settings CDO root items or a Category's Children). */
+	TArray<const TArray<FInstancedStruct>*> NavStack;
+
+	/** Title for each nav level. Index 0 = ring title from settings, deeper levels = entered category's Label. Parallel to NavStack. */
+	TArray<FText> NavTitles;
+
+	/** Wedge entries for the currently displayed level. Rebuilt every RebuildForCurrentLevel. */
+	TArray<FPiUEWedgeEntry> CurrentEntries;
 
 	/** Snapshot of execution mode at menu open. Drives item visibility filtering. */
-	EPiUEItemMode CurrentMode;
+	EPiUEItemMode CurrentMode = EPiUEItemMode::Editor;
 
 	TSharedPtr<SPiUERadialPanel> Panel;
 	TArray<TSharedPtr<SPiUEWedge>> Wedges;
 	TArray<TUniquePtr<FSlateBrush>> DynamicBrushes;
+
+	/** Per-level memo: icon path -> brush already allocated into DynamicBrushes. Avoids redundant allocation when the same icon repeats across wedges in one level. */
+	TMap<FString, const FSlateBrush*> IconBrushCache;
 
 	/** Index of the wedge currently under the cursor (INDEX_NONE = dead zone). */
 	int32 HoveredIndex = INDEX_NONE;
@@ -105,6 +157,7 @@ private:
 	/** Cached settings snapshot values to avoid repeated CDO access. */
 	float MenuRadius = 120.f;
 	float DeadZoneRadius = 25.f;
+	float MenuScale = 1.f;
 	float CachedWedgeExitDuration = 130.f;
 	float CachedArcTrackSpeed = 18.f;
 	float CachedArcFadeSpeed = 10.f;

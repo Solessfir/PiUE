@@ -30,8 +30,11 @@ public:
 	void CloseMenu();
 
 private:
-	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Returns INDEX_NONE if no match. */
+	/** Returns ring index (0-4) whose command chord matches PressedKey, writing the matched chord to OutChord. Modifiers are ignored. Used for release events where the modifier may already be up. */
 	static int32 FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord);
+
+	/** Returns ring index (0-4) whose command chord matches PressedKey AND modifier state from Event. Used for press events where a key bound on multiple rings with different modifiers must resolve to the right one. */
+	static int32 FindMatchingRingIndex(const FKey& PressedKey, const FInputEvent& Event, FInputChord& OutChord);
 
 	/** Gates summon. bViewportOnly=true: target viewport only. false: any editor window (text fields excluded). */
 	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bViewportOnly);
@@ -49,7 +52,7 @@ private:
 	void AttachMenuOverlay(const TSharedRef<SWindow>& Window, const FVector2D& CursorScreen, int32 RingIndex);
 
 	/** Handles a mouse-button summon press: opens or closes the menu for the given ring. */
-	bool TryHandleMouseSummonDown(FSlateApplication& SlateApp, int32 MouseRingIndex);
+	bool TryHandleMouseSummonDown(const FSlateApplication& SlateApp, int32 MouseRingIndex);
 
 	/** Dispatches an LMB confirm or RMB navigate-back while the menu is open in tap mode. Returns whether the event was handled. */
 	bool HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FKey& Button);
@@ -64,8 +67,10 @@ private:
 	/** True while the summon key is held down. Used to ignore auto-repeat key-down events. */
 	bool bSummonKeyHeld = false;
 
-	/** Set after a mouse-button tap opens the menu. The Down event for the closing press can be swallowed by the viewport,
-	    so we close on the Up instead, using TapOpenTime to debounce duplicate hardware Up events. */
+	/**
+	* Set after a mouse-button tap opens the menu. The Down event for the closing press can be swallowed by the viewport,
+	* so we close on the Up instead, using TapOpenTime to debounce duplicate hardware Up events.
+	*/
 	bool bMouseTapCloseArmed = false;
 	double TapOpenTime = 0.0;
 };

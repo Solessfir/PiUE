@@ -8,19 +8,17 @@ public class PiUEEditor : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[]
-		{
-			"Core",
-		});
+		PublicDependencyModuleNames.AddRange([
+			"Core"
+		]);
 
-		PrivateDependencyModuleNames.AddRange(new string[]
-		{
+		PrivateDependencyModuleNames.AddRange([
 			"CoreUObject",
 			"InputCore",
 			"PiUE",
 			"PropertyEditor",
 			"Slate",
-			"SlateCore",
-		});
+			"SlateCore"
+		]);
 	}
 }

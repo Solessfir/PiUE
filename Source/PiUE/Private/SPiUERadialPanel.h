@@ -51,6 +51,9 @@ public:
 	/** Updates the animated arc. InAlpha 0=hidden 1=full; InAngle is radians (0=up, clockwise). */
 	void UpdateArc(const float InAlpha, const float InAngle);
 
+	/** Sets the title text drawn above the small center ring. Empty = no title. */
+	void SetTitle(const FText& InTitle);
+
 	/** Returns the center angle (radians, 0=up, CW) for the given slot index. */
 	float GetSlotAngle(const int32 SlotIndex) const;
 
@@ -81,7 +84,9 @@ private:
 	float ArcAngle = 0.f;
 	float ArcAlpha = 0.f;
 	FLinearColor HighlightColor = FLinearColor(0.1f, 0.5f, 0.9f, 0.95f);
+	FText Title;
 
-	mutable TArray<FVector2D> CachedRingPoints;
-	mutable TArray<FVector2D> CachedArcPoints;
+	/** Scratch buffers reused across paints to draw the inner ring and the highlight arc. Reset+refilled every paint - storage is what's reused, not the values. */
+	mutable TArray<FVector2D> ScratchRingPoints;
+	mutable TArray<FVector2D> ScratchArcPoints;
 };

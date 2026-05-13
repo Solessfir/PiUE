@@ -76,22 +76,21 @@ void FPiUEEditorUtilityObjectItem::Execute() const
 		return;
 	}
 
-	UEditorUtilityBlueprint* Blueprint = Object.LoadSynchronous();
+	const UEditorUtilityBlueprint* Blueprint = Object.LoadSynchronous();
 	if (!Blueprint)
 	{
 		UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityBlueprint {0}.", Object.ToString());
 		return;
 	}
 
-	UClass* Class = Blueprint->GeneratedClass;
+	const UClass* Class = Blueprint->GeneratedClass;
 	if (!Class || !Class->IsChildOf<UEditorUtilityObject>())
 	{
 		UE_LOGFMT(LogPiUE, Warning, "PiUE: EditorUtilityBlueprint {0} has no valid generated class.", Object.ToString());
 		return;
 	}
 
-	UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class);
-	if (Instance)
+	if (UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class))
 	{
 		Instance->Run();
 	}
@@ -111,8 +110,7 @@ void FPiUEEditorUtilityItem::Execute() const
 		return;
 	}
 
-	UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr;
-	if (Subsystem)
+	if (UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr)
 	{
 		Subsystem->SpawnAndRegisterTab(WidgetBP);
 	}

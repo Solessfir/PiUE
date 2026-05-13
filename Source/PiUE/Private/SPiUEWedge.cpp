@@ -69,7 +69,7 @@ void SPiUEWedge::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
 		[
-			SAssignNew(BorderWidget, SBorder)
+			SNew(SBorder)
 			.BorderImage(AnimBrush.Get())
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
@@ -91,7 +91,7 @@ void SPiUEWedge::SetExiting()
 	bExiting = true;
 }
 
-void SPiUEWedge::SetEnterDirection(const FVector2D InOutwardDir, const float InRadius)
+void SPiUEWedge::SetEnterDirection(const FVector2D& InOutwardDir, const float InRadius)
 {
 	OutwardDir = InOutwardDir;
 	OutwardRadius = InRadius;

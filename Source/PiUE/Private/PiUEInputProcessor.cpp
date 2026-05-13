@@ -8,6 +8,7 @@
 #include "Framework/Commands/InputChord.h"
 #include "Editor.h"
 #include "HAL/PlatformTime.h"
+#include "Layout/WidgetPath.h"
 #include "LevelEditorViewport.h"
 #include "PiUECommands.h"
 #include "PiUESettings.h"
@@ -19,35 +20,59 @@
 #include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
-int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
+namespace
 {
-	const TSharedPtr<FUICommandInfo> Commands[5] =
+	bool ChordModifiersMatch(const FInputChord& Chord, const FInputEvent& Event)
 	{
-		FPiUECommands::Get().SummonRadialMenu1,
-		FPiUECommands::Get().SummonRadialMenu2,
-		FPiUECommands::Get().SummonRadialMenu3,
-		FPiUECommands::Get().SummonRadialMenu4,
-		FPiUECommands::Get().SummonRadialMenu5,
-	};
+		return Event.IsControlDown() == Chord.bCtrl
+			&& Event.IsShiftDown()   == Chord.bShift
+			&& Event.IsAltDown()     == Chord.bAlt
+			&& Event.IsCommandDown() == Chord.bCmd;
+	}
 
-	for (int32 RingIndex = 0; RingIndex < 5; ++RingIndex)
+	template <typename PredicateType>
+	int32 FindRingMatching(const FKey& PressedKey, FInputChord& OutChord, PredicateType&& ChordPasses)
 	{
-		if (!Commands[RingIndex].IsValid())
+		const TSharedPtr<FUICommandInfo> Commands[5] =
 		{
-			continue;
-		}
+			FPiUECommands::Get().SummonRadialMenu1,
+			FPiUECommands::Get().SummonRadialMenu2,
+			FPiUECommands::Get().SummonRadialMenu3,
+			FPiUECommands::Get().SummonRadialMenu4,
+			FPiUECommands::Get().SummonRadialMenu5,
+		};
 
-		for (int32 i = 0; i < 2; ++i)
+		for (int32 RingIndex = 0; RingIndex < 5; ++RingIndex)
 		{
-			const FInputChord Chord = *Commands[RingIndex]->GetActiveChord(static_cast<EMultipleKeyBindingIndex>(i));
-			if (Chord.IsValidChord() && Chord.Key == PressedKey)
+			if (!Commands[RingIndex].IsValid())
 			{
-				OutChord = Chord;
-				return RingIndex;
+				continue;
+			}
+
+			for (int32 i = 0; i < 2; ++i)
+			{
+				const FInputChord& Chord = *Commands[RingIndex]->GetActiveChord(static_cast<EMultipleKeyBindingIndex>(i));
+				if (Chord.IsValidChord() && Chord.Key == PressedKey && ChordPasses(Chord))
+				{
+					OutChord = Chord;
+					return RingIndex;
+				}
 			}
 		}
+		return INDEX_NONE;
 	}
-	return INDEX_NONE;
+}
+
+int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
+{
+	return FindRingMatching(PressedKey, OutChord, [](const FInputChord&) { return true; });
+}
+
+int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, const FInputEvent& Event, FInputChord& OutChord)
+{
+	// Multiple rings may bind the same Key with different modifiers (e.g. Ring1=V, Ring2=Ctrl+V).
+	// Iterate every ring's chord and return the first whose key and modifier state both match the event.
+	return FindRingMatching(PressedKey, OutChord, [&Event](const FInputChord& Chord) { return ChordModifiersMatch(Chord, Event); });
 }
 
 TSharedPtr<SWindow> FPiUEInputProcessor::FindWindowUnderCursor(const FSlateApplication& SlateApp)
@@ -98,17 +123,26 @@ bool FPiUEInputProcessor::IsTargetViewportTopmost(const FSlateApplication& Slate
 
 	const FVector2D CursorPos = SlateApp.GetCursorPos();
 
-	// PIE active: cursor must be over the actual game viewport widget area, not just its host window.
-	// In "Selected Viewport" PIE the game viewport widget lives inside the main editor window alongside
-	// other panels - a window-level check would falsely match cursor over Outliner / Details / etc.
+	// Locate the actual widget tree under the cursor. Geometry-only checks (e.g. IsUnderLocation on the viewport widget)
+	// match by rectangle bounds and so falsely succeed when another tab (BP graph, Details, etc.) is docked on top of the viewport's rect.
+	// Walking the hovered widget path resolves z-order / occlusion correctly.
+	TArray<TSharedRef<SWindow>> AllWindows;
+	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
+	const FWidgetPath HoveredPath = FSlateApplication::Get().LocateWindowUnderMouse(CursorPos, AllWindows, true);
+	if (!HoveredPath.IsValid())
+	{
+		return false;
+	}
+
+	// PIE active: cursor must be inside the game viewport widget tree.
 	if (GEditor && GEditor->IsPlaySessionInProgress() && GEngine && GEngine->GameViewport)
 	{
 		const TSharedPtr<SViewport> GameVPWidget = GEngine->GameViewport->GetGameViewportWidget();
-		if (GameVPWidget.IsValid() && GameVPWidget->GetCachedGeometry().IsUnderLocation(CursorPos))
+		if (GameVPWidget.IsValid() && HoveredPath.ContainsWidget(GameVPWidget.Get()))
 		{
 			return true;
 		}
-		// Fall through: even in PIE, the user may want the level viewport to also count as a target.
+		// Fall through: even in PIE the level viewport may also count as a target.
 	}
 
 	if (!GCurrentLevelEditingViewportClient)
@@ -122,7 +156,7 @@ bool FPiUEInputProcessor::IsTargetViewportTopmost(const FSlateApplication& Slate
 		return false;
 	}
 
-	return LVPWidget->GetCachedGeometry().IsUnderLocation(CursorPos);
+	return HoveredPath.ContainsWidget(LVPWidget.Get());
 }
 
 void FPiUEInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -137,14 +171,6 @@ void FPiUEInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateAp
 	{
 		PinnedMenu->TickCategoryHover(DeltaTime);
 	}
-}
-
-static bool ModifiersMatch(const FKeyEvent& InKeyEvent, const FInputChord& SummonChord)
-{
-	return InKeyEvent.IsControlDown() == SummonChord.bCtrl
-		&& InKeyEvent.IsShiftDown()   == SummonChord.bShift
-		&& InKeyEvent.IsAltDown()     == SummonChord.bAlt
-		&& InKeyEvent.IsCommandDown() == SummonChord.bCmd;
 }
 
 bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
@@ -162,8 +188,8 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 	}
 
 	FInputChord SummonChord;
-	const int32 RingIndex = FindMatchingRingIndex(InKeyEvent.GetKey(), SummonChord);
-	if (RingIndex == INDEX_NONE || !ModifiersMatch(InKeyEvent, SummonChord))
+	const int32 RingIndex = FindMatchingRingIndex(InKeyEvent.GetKey(), InKeyEvent, SummonChord);
+	if (RingIndex == INDEX_NONE)
 	{
 		return false;
 	}
@@ -236,7 +262,7 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 	return true;
 }
 
-bool FPiUEInputProcessor::TryHandleMouseSummonDown(FSlateApplication& SlateApp, const int32 MouseRingIndex)
+bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& SlateApp, const int32 MouseRingIndex)
 {
 	if (Menu.IsValid())
 	{
@@ -289,7 +315,7 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 {
 	// Summon via mouse button.
 	FInputChord SummonChord;
-	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord);
+	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), MouseEvent, SummonChord);
 	if (MouseRingIndex != INDEX_NONE)
 	{
 		return TryHandleMouseSummonDown(SlateApp, MouseRingIndex);
@@ -322,10 +348,10 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 	{
 		if (bMouseTapCloseArmed && Menu.IsValid())
 		{
-			// The viewport's input preprocessor (higher-priority type bucket) consumes mouse button Down
-			// when the menu overlay is active, so the closing press never reaches HandleMouseButtonDownEvent.
-			// Instead we close on the Up, but skip the first ~80ms window to absorb hardware duplicate Up
-			// events that some mice fire immediately after the real Up.
+			// Viewport's input preprocessor (higher-priority bucket) eats the closing mouse Down, so we
+			// close on Up instead. Skip first ~80ms to absorb hardware duplicate Up events from some mice.
+			// Hardcoded, not a UPiUESettings entry: it's a driver quirk, not a user preference. 80ms sits
+			// well above observed duplicate intervals (~5-30ms) and well below any intentional second click.
 			constexpr double DuplicateDebounceMs = 80.0;
 			const double MsSinceOpen = (FPlatformTime::Seconds() - TapOpenTime) * 1000.0;
 			if (MsSinceOpen > DuplicateDebounceMs)
@@ -364,7 +390,8 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 void FPiUEInputProcessor::AttachMenuOverlay(const TSharedRef<SWindow>& Window, const FVector2D& CursorScreen, const int32 RingIndex)
 {
 	const UPiUESettings* Settings = GetDefault<UPiUESettings>();
-	const float HalfSize = Settings->MenuRadius + SPiUERadialPanel::WedgePadding;
+	// Inflate the canvas slot by MenuScale so the render-scaled menu visuals fit without clipping.
+	const float HalfSize = (Settings->MenuRadius + SPiUERadialPanel::WedgePadding) * FMath::Max(1.f, Settings->MenuScale);
 	const FVector2D MenuSize(HalfSize * 2.f, HalfSize * 2.f);
 
 	TSharedPtr<SPiUERadialMenu> MenuContent;
@@ -385,7 +412,7 @@ void FPiUEInputProcessor::AttachMenuOverlay(const TSharedRef<SWindow>& Window, c
 		.Position(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateLambda(ComputePos)))
 		.Size(TAttribute<FVector2D>(MenuSize))
 		[
-			SAssignNew(MenuContent, SPiUERadialMenu).RootItems(Settings->GetRingItems(RingIndex)).MenuCenterAbsPos(CursorScreen)
+			SAssignNew(MenuContent, SPiUERadialMenu).RootItems(Settings->GetRingItems(RingIndex)).MenuCenterAbsPos(CursorScreen).RootTitle(Settings->GetRingTitle(RingIndex))
 		];
 
 	Window->AddOverlaySlot()

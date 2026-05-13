@@ -13,12 +13,16 @@ struct PIUE_API FPiUEMenuRing
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
-	TArray<FInstancedStruct> Items;
+	/** Optional title drawn above the small center ring at the root level. Leave empty for no title. */
+	UPROPERTY(EditAnywhere, Config, Category = "Menu")
+	FText Title;
 
 	/** When true, the ring only opens when the cursor is over the level viewport (or PIE viewport during play). When false, it opens in any editor window. */
 	UPROPERTY(EditAnywhere, Config, Category = "Menu")
 	bool bViewportOnly = true;
+
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	TArray<FInstancedStruct> Items;
 };
 
 /**
@@ -68,6 +72,20 @@ public:
 		}
 	}
 
+	/** Returns the user-configured title for the given ring index (0-4), or empty text if out of range. */
+	FText GetRingTitle(const int32 RingIndex) const
+	{
+		switch (RingIndex)
+		{
+			case 0: return Ring1.Title;
+			case 1: return Ring2.Title;
+			case 2: return Ring3.Title;
+			case 3: return Ring4.Title;
+			case 4: return Ring5.Title;
+			default: return FText::GetEmpty();
+		}
+	}
+
 	/** Returns true if the ring at the given index (0-4) is restricted to the level / PIE viewport. */
 	bool IsRingViewportOnly(const int32 RingIndex) const
 	{
@@ -84,11 +102,15 @@ public:
 
 	/** Short press leaves menu open for click navigation. Long press executes hovered wedge on release. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 50.0, ClampMax = 1000.0, ForceUnits = "ms"), Category = "Input")
-	double TapThreshold = 150.0;
+	double TapThreshold = 100.0;
 
 	/** How long a category wedge must be hovered before auto-navigating into it. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 100.0, ClampMax = 5000.0, ForceUnits = "ms"), Category = "Input")
 	double CategoryHoverMs = 300.0;
+
+	/** Overall menu scale. 1.0 = native size; uniformly scales wedges, icons, text, and the hit-test region. */
+	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 0.5f, ClampMax = 3.f), Category = "Layout")
+	float MenuScale = 1.f;
 
 	/** Radius of the wedge ring in screen pixels. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 40.f, ClampMax = 400.f), Category = "Layout")
@@ -108,7 +130,7 @@ public:
 
 	/** Speed multiplier for wedge highlight color transition. Higher = snappier. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 50.f), Category = "Animation")
-	float HighlightAnimSpeed = 14.f;
+	float HighlightAnimSpeed = 20.f;
 
 	/** Speed multiplier for the arc indicator tracking the hovered wedge. Higher = snappier. */
 	UPROPERTY(EditAnywhere, Config, Meta = (ClampMin = 1.f, ClampMax = 100.f), Category = "Animation")
