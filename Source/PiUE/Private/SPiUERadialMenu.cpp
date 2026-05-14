@@ -520,7 +520,11 @@ void SPiUERadialMenu::TickCloseHover(float DeltaTime)
 			{
 				NavTitles.Pop();
 			}
+
 			RebuildForCurrentLevel();
+
+			// Hold-timer nav only: recenter cursor so the wedge under the old cursor angle does not chain-fire another auto-action.
+			FSlateApplication::Get().SetCursorPos(MenuCenterAbsPos);
 		});
 	}
 }
@@ -538,11 +542,13 @@ void SPiUERadialMenu::TickCategoryEnterHover(float DeltaTime)
 		{
 			return;
 		}
+
 		const TArray<FInstancedStruct>* Children = CurrentEntries[NavIndex].CategoryChildren;
 		if (!Children)
 		{
 			return;
 		}
+
 		const FText EnteredTitle = CurrentEntries[NavIndex].bUseLabelAsTitle ? CurrentEntries[NavIndex].Label : FText::GetEmpty();
 
 		BeginTransition([this, Children, EnteredTitle]()
@@ -550,6 +556,9 @@ void SPiUERadialMenu::TickCategoryEnterHover(float DeltaTime)
 			NavStack.Add(Children);
 			NavTitles.Add(EnteredTitle);
 			RebuildForCurrentLevel();
+
+			// Hold-timer nav only: recenter cursor so the wedge under the old cursor angle does not chain-fire another auto-action.
+			FSlateApplication::Get().SetCursorPos(MenuCenterAbsPos);
 		});
 	}
 }
