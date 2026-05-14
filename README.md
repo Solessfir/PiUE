@@ -5,7 +5,10 @@ Blender-style radial quick-action menu for the Unreal Engine level editor viewpo
 ![Editor Screenshot](Resources/Screenshot.png)
 
 ### Installation
-Get `PiUE.zip` from the [releases](https://github.com/Solessfir/PiUE/releases) and extract it into your project's `Plugins` folder.
+
+Clone into your project's `Plugins/` folder and build. Free and open-source.
+
+Prebuilt binary available on [Fab](https://fab.com/s/3b282c27a17e) if you'd like to support the project.
 
 ## Usage
 
