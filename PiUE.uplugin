@@ -6,9 +6,9 @@
 	"Description": "Blender-style pie menu for the Unreal Editor.",
 	"Category": "Editor",
 	"CreatedBy": "Solessfir",
-	"CreatedByURL": "",
+	"CreatedByURL": "https://github.com/Solessfir",
 	"DocsURL": "",
-	"MarketplaceURL": "",
+	"MarketplaceURL": "https://fab.com/s/3b282c27a17e",
 	"CanContainContent": false,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
@@ -17,12 +17,22 @@
 		{
 			"Name": "PiUE",
 			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "PostEngineInit",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Linux"
+			]
 		},
 		{
 			"Name": "PiUEEditor",
 			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "PostEngineInit",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Linux"
+			]
 		}
 	]
 }
