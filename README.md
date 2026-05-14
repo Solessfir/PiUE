@@ -40,8 +40,8 @@ Each ring has three settings:
 
 | Property | Default | Unit | Description |
 |----------|---------|------|-------------|
-| **Tap Threshold** | `150` | ms | Short press leaves the menu open for click navigation. Long press executes the hovered wedge on release. |
-| **Category Hover Ms** | `1000` | ms | How long a category wedge must be hovered before auto-navigating into it. |
+| **Tap Threshold** | `100` | ms | Short press leaves the menu open for click navigation. Long press executes the hovered wedge on release. |
+| **Category Hover Ms** | `300` | ms | How long a category wedge must be hovered before auto-navigating into it. |
 
 ### Layout
 
@@ -57,7 +57,7 @@ Each ring has three settings:
 |----------|---------|------|-------------|
 | **Wedge Exit Duration** | `130` | ms | Duration of the wedge exit animation when the menu closes or navigates. |
 | **Wedge Anim Speed** | `25` | ×/s | Speed multiplier for wedge enter/exit translation animation. Higher = snappier. |
-| **Highlight Anim Speed** | `14` | ×/s | Speed multiplier for wedge highlight color transition. Higher = snappier. |
+| **Highlight Anim Speed** | `20` | ×/s | Speed multiplier for wedge highlight color transition. Higher = snappier. |
 | **Arc Track Speed** | `18` | ×/s | Speed multiplier for the arc indicator tracking the hovered wedge. Higher = snappier. |
 | **Arc Fade Speed** | `10` | ×/s | Speed multiplier for the arc indicator fade in/out. Higher = snappier. |
 
