@@ -11,8 +11,7 @@ public class PiUE : ModuleRules
 		PublicDependencyModuleNames.AddRange([
 			"Core",
 			"CoreUObject",
-			"Engine",
-			"StructUtils"
+			"Engine"
 		]);
 
 		PrivateDependencyModuleNames.AddRange([
@@ -23,6 +22,7 @@ public class PiUE : ModuleRules
 			"EditorSubsystem",
 			"InputCore",
 			"LevelEditor",
+			"MainFrame",
 			"Projects",
 			"Slate",
 			"SlateCore",

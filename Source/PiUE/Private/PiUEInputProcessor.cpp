@@ -63,11 +63,6 @@ namespace
 	}
 }
 
-int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, FInputChord& OutChord)
-{
-	return FindRingMatching(PressedKey, OutChord, [](const FInputChord&) { return true; });
-}
-
 int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, const FInputEvent& Event, FInputChord& OutChord)
 {
 	// Multiple rings may bind the same Key with different modifiers (e.g. Ring1=V, Ring2=Ctrl+V).
@@ -194,9 +189,14 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return false;
 	}
 
-	if (InKeyEvent.IsRepeat() || bSummonKeyHeld)
+	if (bSummonKeyHeld)
 	{
-		return Menu.IsValid();
+		return InKeyEvent.GetKey() == ActiveSummonKey && Menu.IsValid();
+	}
+
+	if (InKeyEvent.IsRepeat())
+	{
+		return false;
 	}
 
 	if (Menu.IsValid())
@@ -217,9 +217,15 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return false;
 	}
 
-	bSummonKeyHeld = true;
-	PressStartTime = FPlatformTime::Seconds();
 	OpenMenu(SlateApp, RingIndex);
+	if (!Menu.IsValid())
+	{
+		return false;
+	}
+
+	bSummonKeyHeld = true;
+	ActiveSummonKey = InKeyEvent.GetKey();
+	PressStartTime = FPlatformTime::Seconds();
 	return true;
 }
 
@@ -230,18 +236,13 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 		return false;
 	}
 
-	FInputChord SummonChord;
-	if (FindMatchingRingIndex(InKeyEvent.GetKey(), SummonChord) == INDEX_NONE)
-	{
-		return false;
-	}
-
-	if (!bSummonKeyHeld)
+	if (!bSummonKeyHeld || InKeyEvent.GetKey() != ActiveSummonKey)
 	{
 		return false;
 	}
 
 	bSummonKeyHeld = false;
+	ActiveSummonKey = FKey();
 
 	const TSharedPtr<SPiUERadialMenu> PinnedMenu = Menu.Pin();
 	if (!PinnedMenu.IsValid())
@@ -262,7 +263,7 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 	return true;
 }
 
-bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& SlateApp, const int32 MouseRingIndex)
+bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& SlateApp, const int32 MouseRingIndex, const FKey& SummonKey)
 {
 	if (Menu.IsValid())
 	{
@@ -280,9 +281,13 @@ bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& Slat
 
 	if (!bSummonKeyHeld && IsViewportFocused(SlateApp, Settings->IsRingViewportOnly(MouseRingIndex)))
 	{
-		bSummonKeyHeld = true;
-		PressStartTime = FPlatformTime::Seconds();
 		OpenMenu(SlateApp, MouseRingIndex);
+		if (Menu.IsValid())
+		{
+			bSummonKeyHeld = true;
+			ActiveSummonKey = SummonKey;
+			PressStartTime = FPlatformTime::Seconds();
+		}
 	}
 
 	return Menu.IsValid();
@@ -318,7 +323,12 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), MouseEvent, SummonChord);
 	if (MouseRingIndex != INDEX_NONE)
 	{
-		return TryHandleMouseSummonDown(SlateApp, MouseRingIndex);
+		if (bSummonKeyHeld)
+		{
+			return MouseEvent.GetEffectingButton() == ActiveSummonKey && Menu.IsValid();
+		}
+
+		return TryHandleMouseSummonDown(SlateApp, MouseRingIndex, MouseEvent.GetEffectingButton());
 	}
 
 	const TSharedPtr<SPiUERadialMenu> PinnedMenu = Menu.Pin();
@@ -338,15 +348,9 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 
 bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
-	FInputChord SummonChord;
-	if (FindMatchingRingIndex(MouseEvent.GetEffectingButton(), SummonChord) == INDEX_NONE)
-	{
-		return false;
-	}
-
 	if (!bSummonKeyHeld)
 	{
-		if (bMouseTapCloseArmed && Menu.IsValid())
+		if (bMouseTapCloseArmed && Menu.IsValid() && MouseEvent.GetEffectingButton() == MouseTapCloseKey)
 		{
 			// Viewport's input preprocessor (higher-priority bucket) eats the closing mouse Down, so we
 			// close on Up instead. Skip first ~80ms to absorb hardware duplicate Up events from some mice.
@@ -364,7 +368,13 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 		return false;
 	}
 
+	if (MouseEvent.GetEffectingButton() != ActiveSummonKey)
+	{
+		return false;
+	}
+
 	bSummonKeyHeld = false;
+	ActiveSummonKey = FKey();
 
 	const TSharedPtr<SPiUERadialMenu> PinnedMenu = Menu.Pin();
 	if (!PinnedMenu.IsValid())
@@ -378,6 +388,7 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 	if (ElapsedMs < Settings->TapThreshold)
 	{
 		bMouseTapCloseArmed = true;
+		MouseTapCloseKey = MouseEvent.GetEffectingButton();
 		TapOpenTime = FPlatformTime::Seconds();
 		return true;
 	}
@@ -441,7 +452,10 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, const int3
 
 void FPiUEInputProcessor::CloseMenu()
 {
+	bSummonKeyHeld = false;
+	ActiveSummonKey = FKey();
 	bMouseTapCloseArmed = false;
+	MouseTapCloseKey = FKey();
 	if (const TSharedPtr<SWindow> Window = OverlayWindow.Pin())
 	{
 		if (MenuOverlayWidget.IsValid())

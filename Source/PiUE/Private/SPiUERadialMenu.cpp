@@ -98,7 +98,7 @@ const FSlateBrush* SPiUERadialMenu::ResolveItemIcon(const FPiUEMenuItemBase& Bas
 	}
 
 	// Icon picker only enumerates engine .svg resources; FSlateVectorImageBrush is the only relevant type.
-	TUniquePtr<FSlateBrush> Brush = MakeUnique<FSlateVectorImageBrush>(Base.Icon.Path, FVector2D(18.f, 18.f));
+	TUniquePtr<FSlateBrush> Brush = MakeUnique<FSlateVectorImageBrush>(Base.Icon.ResolvePath(), FVector2D(18.f, 18.f));
 	const FSlateBrush* Ptr = Brush.Get();
 	DynamicBrushes.Add(MoveTemp(Brush));
 	IconBrushCache.Add(Base.Icon.Path, Ptr);

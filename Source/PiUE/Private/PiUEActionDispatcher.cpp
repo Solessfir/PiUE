@@ -9,12 +9,8 @@
 #include "Engine/Engine.h"
 #include "Framework/Commands/InputBindingManager.h"
 #include "Framework/Commands/UICommandInfo.h"
-#include "Framework/Commands/UICommandList.h"
-#include "LevelEditor.h"
-#include "LevelEditorViewport.h"
-#include "Modules/ModuleManager.h"
-#include "SEditorViewport.h"
 #include "StructUtils/InstancedStruct.h"
+#include "PiUECommandRouter.h"
 #include "PiUETypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPiUE, Log, All);
@@ -33,29 +29,12 @@ void FPiUEEditorCommandItem::Execute() const
 		return;
 	}
 
-	// Try the Level Editor's global command list. Covers PIE, Simulate, view modes, show flags, and most viewport actions.
-	// Other-context commands (asset editors, etc.) are out of scope for now.
-	if (FModuleManager::Get().IsModuleLoaded("LevelEditor"))
+	if (FPiUECommandRouter::TryExecuteCommand(Info.ToSharedRef()))
 	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
-		const TSharedRef<FUICommandList> Commands = LevelEditorModule.GetGlobalLevelEditorActions();
-		if (Commands->TryExecuteAction(Info.ToSharedRef()))
-		{
-			return;
-		}
+		return;
 	}
 
-	// Fallback: try the active viewport's own command list (covers viewport-specific bindings).
-	if (GCurrentLevelEditingViewportClient)
-	{
-		const TSharedPtr<SEditorViewport> ViewportWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
-		if (ViewportWidget.IsValid() && ViewportWidget->GetCommandList()->TryExecuteAction(Info.ToSharedRef()))
-		{
-			return;
-		}
-	}
-
-	UE_LOGFMT(LogPiUE, Warning, "PiUE: command {0}.{1} not bound on any known command list.", CommandContext, CommandName);
+	UE_LOGFMT(LogPiUE, Warning, "PiUE: command {0}.{1} is unavailable in the current editor context.", CommandContext, CommandName);
 }
 
 void FPiUEConsoleCommandItem::Execute() const

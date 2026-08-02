@@ -21,7 +21,9 @@ struct PIUE_API FPiUEMenuRing
 	UPROPERTY(EditAnywhere, Config, Category = "Menu")
 	bool bViewportOnly = true;
 
-	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct), Category = "Menu")
+	// NoResetToDefault: engine crashes computing default-value diff for direct properties of a struct
+	// held inside FInstancedStruct (FInstancedStructProvider::GetValueBaseAddress, dangling ScriptStruct).
+	UPROPERTY(EditAnywhere, Config, Meta = (BaseStruct = "/Script/PiUE.PiUEMenuItemBase", ExcludeBaseStruct, NoResetToDefault), Category = "Menu")
 	TArray<FInstancedStruct> Items;
 };
 

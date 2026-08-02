@@ -25,6 +25,94 @@
 
 using namespace PiUEEditor;
 
+struct FPiUEIconPickerItem
+{
+	FString AbsolutePath;
+	FString StoredPath;
+	FString Name;
+	TUniquePtr<FSlateBrush> Brush;
+	float BrushSize = 0.f;
+
+	const FSlateBrush* GetBrush(const float DesiredSize)
+	{
+		if (!Brush.IsValid() || BrushSize != DesiredSize)
+		{
+			Brush = MakeUnique<FSlateVectorImageBrush>(AbsolutePath, FVector2D(DesiredSize, DesiredSize));
+			BrushSize = DesiredSize;
+		}
+		return Brush.Get();
+	}
+};
+
+namespace
+{
+	FString MakePortableIconPath(const FString& AbsolutePath)
+	{
+		FString NormalizedPath = AbsolutePath;
+		FPaths::NormalizeFilename(NormalizedPath);
+
+		const FString EngineContentDir = FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir());
+		if (FPaths::IsUnderDirectory(NormalizedPath, EngineContentDir))
+		{
+			FString RelativePath = NormalizedPath;
+			if (FPaths::MakePathRelativeTo(RelativePath, *EngineContentDir))
+			{
+				FPaths::NormalizeFilename(RelativePath);
+				return RelativePath;
+			}
+		}
+
+		return NormalizedPath;
+	}
+
+	const TArray<TSharedPtr<FPiUEIconPickerItem>>& GetIconCatalog()
+	{
+		static TArray<TSharedPtr<FPiUEIconPickerItem>> Catalog;
+		static bool bInitialized = false;
+		if (bInitialized)
+		{
+			return Catalog;
+		}
+		bInitialized = true;
+
+		const TArray<FString> SearchDirs =
+		{
+			FPaths::EngineDir() / TEXT("Content/Editor/Slate/Starship"),
+			FPaths::EngineDir() / TEXT("Content/Slate/Starship"),
+		};
+
+		TSet<FString> UniquePaths;
+		for (const FString& Dir : SearchDirs)
+		{
+			TArray<FString> Found;
+			IFileManager::Get().FindFilesRecursive(Found, *Dir, TEXT("*.svg"), true, false);
+			for (FString& Path : Found)
+			{
+				FPaths::NormalizeFilename(Path);
+				if (UniquePaths.Contains(Path))
+				{
+					continue;
+				}
+				UniquePaths.Add(Path);
+
+				const TSharedRef<FPiUEIconPickerItem> Item = MakeShared<FPiUEIconPickerItem>();
+				Item->AbsolutePath = Path;
+				Item->StoredPath = MakePortableIconPath(Path);
+				Item->Name = FPaths::GetBaseFilename(Path);
+				Catalog.Add(Item);
+			}
+		}
+
+		Catalog.Sort([](const TSharedPtr<FPiUEIconPickerItem>& A, const TSharedPtr<FPiUEIconPickerItem>& B)
+		{
+			const int32 NameOrder = A->Name.Compare(B->Name, ESearchCase::IgnoreCase);
+			return NameOrder == 0 ? A->StoredPath < B->StoredPath : NameOrder < 0;
+		});
+
+		return Catalog;
+	}
+}
+
 TSharedRef<IPropertyTypeCustomization> FPiUEIconPathCustomization::MakeInstance()
 {
 	return MakeShared<FPiUEIconPathCustomization>();
@@ -89,106 +177,77 @@ void FPiUEIconPathCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> I
 	// Intentionally empty - combo button in CustomizeHeader is the complete interface. Exposing raw Path string would be redundant.
 }
 
-void FPiUEIconPathCustomization::ScanIcons()
+TSharedRef<SWidget> FPiUEIconPathCustomization::BuildIconButton(const TSharedPtr<FPiUEIconPickerItem>& Item, const float IconSize)
 {
-	AllIconPaths.Reset();
-
-	const TArray<FString> SearchDirs =
-	{
-		FPaths::EngineDir() / TEXT("Content/Editor/Slate/Starship"),
-		FPaths::EngineDir() / TEXT("Content/Slate/Starship"),
-	};
-
-	for (const FString& Dir : SearchDirs)
-	{
-		TArray<FString> Found;
-		IFileManager::Get().FindFilesRecursive(Found, *Dir, TEXT("*.svg"), true, false);
-		AllIconPaths.Append(Found);
-	}
-}
-
-TSharedRef<SWidget> FPiUEIconPathCustomization::BuildIconButton(const FString& Path, const FSlateBrush* Brush, const float IconSize)
-{
-	const FString Name = FPaths::GetBaseFilename(Path);
 	return SNew(SButton)
 		.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-		.ToolTipText(FText::FromString(Name))
-		.OnClicked_Lambda([this, Path]() { OnIconSelected(Path); return FReply::Handled(); })
-		.Visibility_Lambda([this, Name]() -> EVisibility
-		{
-			return SearchText.IsEmpty() || Name.Contains(SearchText.ToString(), ESearchCase::IgnoreCase) ? EVisibility::Visible : EVisibility::Collapsed;
-		})
+		.ToolTipText(FText::FromString(Item->Name))
+		.OnClicked_Lambda([this, StoredPath = Item->StoredPath]() { OnIconSelected(StoredPath); return FReply::Handled(); })
 		[
 			SNew(SBox)
 			.WidthOverride(IconSize)
 			.HeightOverride(IconSize)
 			[
-				SNew(SImage).Image(Brush)
+				SNew(SImage).Image(Item->GetBrush(IconSize))
 			]
 		];
 }
 
-TSharedRef<SWidget> FPiUEIconPathCustomization::BuildIconGrid()
+void FPiUEIconPathCustomization::RefreshVisibleIcons()
 {
-	if (CachedIconGrid.IsValid())
+	if (!IconGrid.IsValid())
 	{
-		return CachedIconGrid.ToSharedRef();
+		return;
 	}
 
-	if (AllIconPaths.IsEmpty())
-	{
-		ScanIcons();
-	}
+	IconGrid->ClearChildren();
 
-	PickerBrushes.Reset();
-	PickerBrushes.Reserve(AllIconPaths.Num());
-
+	const FString Filter = SearchText.ToString();
 	const float IconDim = GetDefault<UPiUESettings>()->IconPickerSize;
-	SAssignNew(IconGrid, SUniformWrapPanel)
-	.HAlign(HAlign_Left)
-	.SlotPadding(FMargin(4.f));
 
-	for (const FString& Path : AllIconPaths)
+	for (const TSharedPtr<FPiUEIconPickerItem>& Item : GetIconCatalog())
 	{
-		PickerBrushes.Add(MakeUnique<FSlateVectorImageBrush>(Path, FVector2D(IconDim, IconDim)));
-		IconGrid->AddSlot()[BuildIconButton(Path, PickerBrushes.Last().Get(), IconDim)];
+		if (Filter.IsEmpty() || Item->Name.Contains(Filter, ESearchCase::IgnoreCase))
+		{
+			IconGrid->AddSlot()[BuildIconButton(Item, IconDim)];
+		}
 	}
-
-	CachedIconGrid = IconGrid;
-	return CachedIconGrid.ToSharedRef();
 }
 
 TSharedRef<SWidget> FPiUEIconPathCustomization::BuildMenuContent()
 {
 	SearchText = FText::GetEmpty();
-	if (CachedIconGrid.IsValid())
-	{
-		IconGrid->Invalidate(EInvalidateWidgetReason::Layout);
-	}
 
-	return SNew(SBox)
-	.WidthOverride(MenuWidth)
-	.HeightOverride(MenuHeight)
-	[
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(4.f)
+	TSharedRef<SWidget> Content =
+		SNew(SBox)
+		.WidthOverride(MenuWidth)
+		.HeightOverride(MenuHeight)
 		[
-			SAssignNew(SearchBox, SSearchBox)
-			.OnTextChanged(this, &FPiUEIconPathCustomization::OnSearchTextChanged)
-		]
-		+ SVerticalBox::Slot()
-		.FillHeight(1.f)
-		.Padding(4.f, 0.f, 4.f, 4.f)
-		[
-			SNew(SScrollBox)
-			+ SScrollBox::Slot()
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(4.f)
 			[
-				BuildIconGrid()
+				SAssignNew(SearchBox, SSearchBox)
+				.OnTextChanged(this, &FPiUEIconPathCustomization::OnSearchTextChanged)
 			]
-		]
-	];
+			+ SVerticalBox::Slot()
+			.FillHeight(1.f)
+			.Padding(4.f, 0.f, 4.f, 4.f)
+			[
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()
+				[
+					SAssignNew(IconGrid, SUniformWrapPanel)
+					.HAlign(HAlign_Left)
+					.SlotPadding(FMargin(4.f))
+				]
+			]
+		];
+
+	RefreshVisibleIcons();
+
+	return Content;
 }
 
 void FPiUEIconPathCustomization::OnIconSelected(const FString& InPath)
@@ -203,10 +262,7 @@ void FPiUEIconPathCustomization::OnIconSelected(const FString& InPath)
 void FPiUEIconPathCustomization::OnSearchTextChanged(const FText& InText)
 {
 	SearchText = InText;
-	if (IconGrid.IsValid())
-	{
-		IconGrid->Invalidate(EInvalidateWidgetReason::Layout);
-	}
+	RefreshVisibleIcons();
 }
 
 const FSlateBrush* FPiUEIconPathCustomization::GetPreviewBrush()
@@ -216,7 +272,9 @@ const FSlateBrush* FPiUEIconPathCustomization::GetPreviewBrush()
 	if (CurrentPath != CachedPreviewPath)
 	{
 		CachedPreviewPath = CurrentPath;
-		PreviewBrush = CurrentPath.IsEmpty() ? nullptr : MakeUnique<FSlateVectorImageBrush>(CurrentPath, FVector2D(16.f, 16.f));
+		FPiUEIconPath IconPath;
+		IconPath.Path = CurrentPath;
+		PreviewBrush = CurrentPath.IsEmpty() ? nullptr : MakeUnique<FSlateVectorImageBrush>(IconPath.ResolvePath(), FVector2D(16.f, 16.f));
 	}
 
 	return PreviewBrush.Get();

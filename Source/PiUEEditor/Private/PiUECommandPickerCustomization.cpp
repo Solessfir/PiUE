@@ -1,9 +1,11 @@
 // Copyright Solessfir 2026. All Rights Reserved.
 
 #include "PiUECommandPickerCustomization.h"
+#include "PiUECommandRouter.h"
 #include "PiUETypes.h"
 #include "DetailWidgetRow.h"
 #include "Framework/Commands/InputBindingManager.h"
+#include "IDetailPropertyRow.h"
 #include "Framework/Commands/UICommandInfo.h"
 #include "IDetailChildrenBuilder.h"
 #include "PropertyHandle.h"
@@ -29,6 +31,9 @@ void FPiUECommandPickerCustomization::CustomizeHeader(TSharedRef<IPropertyHandle
 {
 	CommandContextHandle = InStructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FPiUEEditorCommandItem, CommandContext));
 	CommandNameHandle = InStructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FPiUEEditorCommandItem, CommandName));
+
+	// No Meta can gate this row's reset-to-default - its node has no backing FProperty, so CanResetToDefault() crashes instead.
+	InHeaderRow.OverrideResetToDefault(FResetToDefaultOverride::Hide());
 
 	InHeaderRow
 	.NameContent()
@@ -111,12 +116,20 @@ void FPiUECommandPickerCustomization::BuildAllNodes()
 
 		for (const TSharedPtr<FUICommandInfo>& Command : ContextCommands)
 		{
+			if (!Command.IsValid() || !FPiUECommandRouter::IsCommandMapped(Command.ToSharedRef()))
+			{
+				continue;
+			}
+
 			const TSharedRef<FPiUECommandPickerNode> CommandNode = MakeShared<FPiUECommandPickerNode>();
 			CommandNode->Command = Command;
 			ContextNode->Children.Add(CommandNode);
 		}
 
-		AllRootNodes.Add(ContextNode);
+		if (ContextNode->Children.Num() > 0)
+		{
+			AllRootNodes.Add(ContextNode);
+		}
 	}
 }
 

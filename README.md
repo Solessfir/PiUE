@@ -79,15 +79,15 @@ All item types share these base properties:
 | **Icon** | Optional Slate SVG icon drawn beside the label. Select via the icon picker. |
 | **Background Tint** | Overrides the wedge background color. Unset = use theme default. |
 | **Bold** | Renders the label in bold. |
-| **Mode** | Bitmask of when the item is visible: **Editor** (default), **PIE / Game**, or both. Items whose mode does not include the current context are hidden. |
+| **Mode** | Bitmask of when the item is visible: **Editor**, **PIE / Game**, or both (default). Items whose mode does not include the current context are hidden. |
 
 ### Editor Command
-Executes a registered editor command by context and name.
+Executes an editor command mapped by the main frame, level editor, or current level viewport command list.
 
 - **Command Context** - binding context (e.g. `LevelEditor`)
 - **Command Name** - command key within that context (e.g. `PlayInViewport`)
 
-Use the command picker dropdown to browse and search all registered commands.
+Use the command picker dropdown to browse and search commands that PiUE can route through those command lists.
 
 ### Console Command
 Passes a string to `GEngine->Exec` against the editor world.
