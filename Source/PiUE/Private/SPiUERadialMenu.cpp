@@ -335,7 +335,7 @@ void SPiUERadialMenu::Construct(const FArguments& InArgs)
 	];
 
 	// Uniform visual scale around the menu center. Layout (Panel.Radius, wedge sizes) stays unscaled;
-	// hit math compensates by dividing the cursor delta by MenuScale in Tick.
+	// Selection compensates by dividing the cursor delta by MenuScale.
 	if (!FMath::IsNearlyEqual(MenuScale, 1.f))
 	{
 		SetRenderTransform(FSlateRenderTransform(FScale2D(MenuScale)));
@@ -444,7 +444,25 @@ void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCur
 		return;
 	}
 
-	const FVector2D CursorScreen = FSlateApplication::Get().GetCursorPos();
+	RefreshHoveredSelection(FSlateApplication::Get().GetCursorPos());
+
+	if (bArcActive)
+	{
+		const float Delta = FMath::FindDeltaAngleRadians(ArcCurrentAngle, ArcTargetAngle);
+		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcTrackSpeed);
+	}
+
+	const float AlphaTarget = bArcActive ? 1.f : 0.f;
+	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcFadeSpeed);
+	Panel->UpdateArc(ArcDisplayAlpha, ArcCurrentAngle);
+}
+
+void SPiUERadialMenu::RefreshHoveredSelection(const FVector2D& CursorScreen)
+{
+	if (!Panel.IsValid())
+	{
+		return;
+	}
 
 	// Visuals are render-scaled; cursor positions are in unscaled screen space, so divide the delta to compare against unscaled radii.
 	const float InvScale = MenuScale > 0.f ? 1.f / MenuScale : 1.f;
@@ -474,20 +492,17 @@ void SPiUERadialMenu::Tick(const FGeometry& AllottedGeometry, const double InCur
 			bArcActive = true;
 		}
 	}
-
-	if (bArcActive)
-	{
-		const float Delta = FMath::FindDeltaAngleRadians(ArcCurrentAngle, ArcTargetAngle);
-		ArcCurrentAngle += Delta * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcTrackSpeed);
-	}
-
-	const float AlphaTarget = bArcActive ? 1.f : 0.f;
-	ArcDisplayAlpha += (AlphaTarget - ArcDisplayAlpha) * FMath::Min(1.f, static_cast<float>(InDeltaTime) * CachedArcFadeSpeed);
-	Panel->UpdateArc(ArcDisplayAlpha, ArcCurrentAngle);
 }
 
-void SPiUERadialMenu::TryExecuteHoveredAction()
+void SPiUERadialMenu::TryExecuteHoveredAction(const FVector2D& CursorScreen)
 {
+	if (bTransitionPending)
+	{
+		return;
+	}
+
+	RefreshHoveredSelection(CursorScreen);
+
 	if (!CurrentEntries.IsValidIndex(HoveredIndex))
 	{
 		return;
@@ -565,6 +580,13 @@ void SPiUERadialMenu::TickCategoryEnterHover(float DeltaTime)
 
 void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 {
+	if (bTransitionPending)
+	{
+		return;
+	}
+
+	RefreshHoveredSelection(FSlateApplication::Get().GetCursorPos());
+
 	if (HoveredIndex != CategoryHoverIndex)
 	{
 		CategoryHoverIndex = HoveredIndex;
@@ -584,8 +606,15 @@ void SPiUERadialMenu::TickCategoryHover(float DeltaTime)
 	}
 }
 
-bool SPiUERadialMenu::ConfirmSelection()
+bool SPiUERadialMenu::ConfirmSelection(const FVector2D& CursorScreen)
 {
+	if (bTransitionPending)
+	{
+		return false;
+	}
+
+	RefreshHoveredSelection(CursorScreen);
+
 	if (NavStack.Num() == 0 || !CurrentEntries.IsValidIndex(HoveredIndex))
 	{
 		return true;

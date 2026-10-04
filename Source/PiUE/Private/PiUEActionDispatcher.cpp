@@ -55,7 +55,7 @@ void FPiUEEditorUtilityObjectItem::Execute() const
 		return;
 	}
 
-	const UEditorUtilityBlueprint* Blueprint = Object.LoadSynchronous();
+	UEditorUtilityBlueprint* Blueprint = Object.LoadSynchronous();
 	if (!Blueprint)
 	{
 		UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to load EditorUtilityBlueprint {0}.", Object.ToString());
@@ -69,9 +69,12 @@ void FPiUEEditorUtilityObjectItem::Execute() const
 		return;
 	}
 
-	if (UEditorUtilityObject* Instance = NewObject<UEditorUtilityObject>(GetTransientPackage(), Class))
+	if (UEditorUtilitySubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>() : nullptr)
 	{
-		Instance->Run();
+		if (!Subsystem->TryRun(Blueprint))
+		{
+			UE_LOGFMT(LogPiUE, Warning, "PiUE: failed to run EditorUtilityBlueprint {0}.", Object.ToString());
+		}
 	}
 }
 

@@ -70,14 +70,14 @@ public:
 	/** Returns true if any item in the array (recursively, for categories) is visible in the given mode. */
 	static bool HasAnyVisibleItem(const TArray<FInstancedStruct>& Items, EPiUEItemMode Mode);
 
-	/** Confirms the currently highlighted wedge. Enters categories, dispatches leaf items, returns true if the menu should close. */
-	bool ConfirmSelection();
+	/** Confirms the wedge at the cursor position. Enters categories, dispatches leaf items, returns true if the menu should close. */
+	bool ConfirmSelection(const FVector2D& CursorScreen);
 
 	/** Navigates one level up. Returns true if the menu should close (already at root). */
 	bool NavigateBack();
 
-	/** Executes the hovered wedge only if it is a leaf action. No-op for categories, back button, and dead zone. */
-	void TryExecuteHoveredAction();
+	/** Executes the wedge at the cursor position only if it is a leaf action. No-op for categories, back button, and dead zone. */
+	void TryExecuteHoveredAction(const FVector2D& CursorScreen);
 
 	/** Accumulates hover time on a category wedge and navigates into it after the threshold. Only active in hold mode. */
 	void TickCategoryHover(float DeltaTime);
@@ -88,6 +88,9 @@ public:
 	// End SWidget interface
 
 private:
+	/** Refreshes selection from the cursor position before timing or dispatching actions. */
+	void RefreshHoveredSelection(const FVector2D& CursorScreen);
+
 	/** Rebuilds the radial panel from the source items on top of the stack. */
 	void RebuildForCurrentLevel();
 

@@ -70,9 +70,8 @@ int32 FPiUEInputProcessor::FindMatchingRingIndex(const FKey& PressedKey, const F
 	return FindRingMatching(PressedKey, OutChord, [&Event](const FInputChord& Chord) { return ChordModifiersMatch(Chord, Event); });
 }
 
-TSharedPtr<SWindow> FPiUEInputProcessor::FindWindowUnderCursor(const FSlateApplication& SlateApp)
+TSharedPtr<SWindow> FPiUEInputProcessor::FindWindowUnderCursor(const FVector2D& CursorPos)
 {
-	const FVector2D CursorPos = SlateApp.GetCursorPos();
 	TArray<TSharedRef<SWindow>> AllWindows;
 	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
 
@@ -88,7 +87,14 @@ TSharedPtr<SWindow> FPiUEInputProcessor::FindWindowUnderCursor(const FSlateAppli
 	return nullptr;
 }
 
-bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, const bool bViewportOnly)
+bool FPiUEInputProcessor::IsMenuWindowUnderCursor(const FVector2D& CursorPos) const
+{
+	FSlateApplication& SlateApp = FSlateApplication::Get();
+	const FWidgetPath HoveredPath = SlateApp.LocateWindowUnderMouse(CursorPos, SlateApp.GetInteractiveTopLevelWindows(), true);
+	return HoveredPath.IsValid() && HoveredPath.GetWindow() == OverlayWindow.Pin();
+}
+
+bool FPiUEInputProcessor::CanSummonMenu(const FSlateApplication& SlateApp, const bool bViewportOnly)
 {
 	const TSharedPtr<SWidget> FocusedWidget = SlateApp.GetKeyboardFocusedWidget();
 	if (FocusedWidget.IsValid())
@@ -102,15 +108,15 @@ bool FPiUEInputProcessor::IsViewportFocused(const FSlateApplication& SlateApp, c
 
 	if (!bViewportOnly)
 	{
-		return FindWindowUnderCursor(SlateApp).IsValid();
+		return FindWindowUnderCursor(SlateApp.GetCursorPos()).IsValid();
 	}
 
-	return IsTargetViewportTopmost(SlateApp);
+	return ActivateTargetViewportUnderCursor(SlateApp);
 }
 
-bool FPiUEInputProcessor::IsTargetViewportTopmost(const FSlateApplication& SlateApp)
+bool FPiUEInputProcessor::ActivateTargetViewportUnderCursor(const FSlateApplication& SlateApp)
 {
-	const TSharedPtr<SWindow> Cursor = FindWindowUnderCursor(SlateApp);
+	const TSharedPtr<SWindow> Cursor = FindWindowUnderCursor(SlateApp.GetCursorPos());
 	if (!Cursor.IsValid())
 	{
 		return false;
@@ -140,18 +146,22 @@ bool FPiUEInputProcessor::IsTargetViewportTopmost(const FSlateApplication& Slate
 		// Fall through: even in PIE the level viewport may also count as a target.
 	}
 
-	if (!GCurrentLevelEditingViewportClient)
+	if (!GEditor)
 	{
 		return false;
 	}
 
-	const TSharedPtr<SEditorViewport> LVPWidget = GCurrentLevelEditingViewportClient->GetEditorViewportWidget();
-	if (!LVPWidget.IsValid())
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		return false;
+		const TSharedPtr<SEditorViewport> ViewportWidget = ViewportClient->GetEditorViewportWidget();
+		if (ViewportWidget.IsValid() && HoveredPath.ContainsWidget(ViewportWidget.Get()))
+		{
+			ViewportClient->SetLastKeyViewport();
+			return true;
+		}
 	}
 
-	return HoveredPath.ContainsWidget(LVPWidget.Get());
+	return false;
 }
 
 void FPiUEInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -212,7 +222,7 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 		return false;
 	}
 
-	if (!IsViewportFocused(SlateApp, Settings->IsRingViewportOnly(RingIndex)))
+	if (!CanSummonMenu(SlateApp, Settings->IsRingViewportOnly(RingIndex)))
 	{
 		return false;
 	}
@@ -231,6 +241,12 @@ bool FPiUEInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const 
 
 bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
+	if (Menu.IsValid() && !IsMenuWindowUnderCursor(SlateApp.GetCursorPos()))
+	{
+		CloseMenu();
+		return false;
+	}
+
 	if (InKeyEvent.GetKey().IsMouseButton())
 	{
 		return false;
@@ -258,7 +274,7 @@ bool FPiUEInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FK
 		return true;
 	}
 
-	PinnedMenu->TryExecuteHoveredAction();
+	PinnedMenu->TryExecuteHoveredAction(SlateApp.GetCursorPos());
 	CloseMenu();
 	return true;
 }
@@ -279,7 +295,7 @@ bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& Slat
 		return false;
 	}
 
-	if (!bSummonKeyHeld && IsViewportFocused(SlateApp, Settings->IsRingViewportOnly(MouseRingIndex)))
+	if (!bSummonKeyHeld && CanSummonMenu(SlateApp, Settings->IsRingViewportOnly(MouseRingIndex)))
 	{
 		OpenMenu(SlateApp, MouseRingIndex);
 		if (Menu.IsValid())
@@ -293,8 +309,9 @@ bool FPiUEInputProcessor::TryHandleMouseSummonDown(const FSlateApplication& Slat
 	return Menu.IsValid();
 }
 
-bool FPiUEInputProcessor::HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FKey& Button)
+bool FPiUEInputProcessor::HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FPointerEvent& MouseEvent)
 {
+	const FKey Button = MouseEvent.GetEffectingButton();
 	if (Button == EKeys::RightMouseButton)
 	{
 		if (PinnedMenu->NavigateBack())
@@ -306,7 +323,7 @@ bool FPiUEInputProcessor::HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& Pin
 
 	if (Button == EKeys::LeftMouseButton)
 	{
-		if (PinnedMenu->ConfirmSelection())
+		if (PinnedMenu->ConfirmSelection(MouseEvent.GetScreenSpacePosition()))
 		{
 			CloseMenu();
 		}
@@ -318,6 +335,12 @@ bool FPiUEInputProcessor::HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& Pin
 
 bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
+	if (Menu.IsValid() && !IsMenuWindowUnderCursor(MouseEvent.GetScreenSpacePosition()))
+	{
+		CloseMenu();
+		return false;
+	}
+
 	// Summon via mouse button.
 	FInputChord SummonChord;
 	const int32 MouseRingIndex = FindMatchingRingIndex(MouseEvent.GetEffectingButton(), MouseEvent, SummonChord);
@@ -343,11 +366,17 @@ bool FPiUEInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp
 		return false;
 	}
 
-	return HandleMenuClick(PinnedMenu, MouseEvent.GetEffectingButton());
+	return HandleMenuClick(PinnedMenu, MouseEvent);
 }
 
 bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
+	if (Menu.IsValid() && !IsMenuWindowUnderCursor(MouseEvent.GetScreenSpacePosition()))
+	{
+		CloseMenu();
+		return false;
+	}
+
 	if (!bSummonKeyHeld)
 	{
 		if (bMouseTapCloseArmed && Menu.IsValid() && MouseEvent.GetEffectingButton() == MouseTapCloseKey)
@@ -393,7 +422,7 @@ bool FPiUEInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, 
 		return true;
 	}
 
-	PinnedMenu->TryExecuteHoveredAction();
+	PinnedMenu->TryExecuteHoveredAction(MouseEvent.GetScreenSpacePosition());
 	CloseMenu();
 	return true;
 }
@@ -441,13 +470,25 @@ void FPiUEInputProcessor::OpenMenu(const FSlateApplication& SlateApp, const int3
 	CloseMenu();
 
 	const FVector2D CursorScreen = SlateApp.GetCursorPos();
-	const TSharedPtr<SWindow> Window = FindWindowUnderCursor(SlateApp);
+	const TSharedPtr<SWindow> Window = FindWindowUnderCursor(CursorScreen);
 	if (!Window.IsValid())
 	{
 		return;
 	}
 
 	AttachMenuOverlay(Window.ToSharedRef(), CursorScreen, RingIndex);
+	Window->GetOnWindowDeactivatedEvent().AddSP(AsShared(), &FPiUEInputProcessor::CloseMenu);
+	Window->GetOnWindowClosedEvent().AddSPLambda(this, [this](const TSharedRef<SWindow>&)
+	{
+		CloseMenu();
+	});
+	FSlateApplication::Get().OnApplicationActivationStateChanged().AddSPLambda(this, [this](bool bIsActive)
+	{
+		if (!bIsActive)
+		{
+			CloseMenu();
+		}
+	});
 }
 
 void FPiUEInputProcessor::CloseMenu()
@@ -458,10 +499,16 @@ void FPiUEInputProcessor::CloseMenu()
 	MouseTapCloseKey = FKey();
 	if (const TSharedPtr<SWindow> Window = OverlayWindow.Pin())
 	{
+		Window->GetOnWindowDeactivatedEvent().RemoveAll(this);
+		Window->GetOnWindowClosedEvent().RemoveAll(this);
 		if (MenuOverlayWidget.IsValid())
 		{
 			Window->RemoveOverlaySlot(MenuOverlayWidget.ToSharedRef());
 		}
+	}
+	if (FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().OnApplicationActivationStateChanged().RemoveAll(this);
 	}
 	OverlayWindow.Reset();
 	MenuOverlayWidget.Reset();

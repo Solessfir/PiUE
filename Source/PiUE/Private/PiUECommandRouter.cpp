@@ -52,7 +52,7 @@ bool FPiUECommandRouter::IsCommandMapped(const TSharedRef<const FUICommandInfo>&
 {
 	return VisitKnownCommandLists([&Command](const TSharedRef<FUICommandList>& CommandList)
 	{
-		return CommandList->IsActionMapped(Command);
+		return CommandList->GetActionForCommand(Command) != nullptr;
 	});
 }
 

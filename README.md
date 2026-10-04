@@ -16,6 +16,8 @@ PiUE supports up to **five independent rings**, each bound to its own hotkey. Pr
 
 By default each ring only opens when the cursor is directly over the **level viewport** (or the **PIE viewport** during play) - z-order is respected, so the menu will not trigger when another tab (Blueprint graph, Details, etc.) is docked over the viewport area. Disable **Viewport Only** on a ring to allow it to open in any editor window.
 
+In layouts with multiple level viewports, viewport-only rings target the pane under the cursor. The menu dismisses when its window loses activation or input moves to another window.
+
 **Ring 1** defaults to **V**. Rings 2 - 5 are unbound by default.
 
 PiUE works during Play In Editor as long as at least one item in the ring has the **PIE / Game** mode bit set. Each item declares its own visibility via the **Mode** bitmask (Editor and/or PIE), so a single ring can hold both editor-only and PIE-only commands - the menu shows only the items applicable to the current mode. Bind PIE-enabled rings to keys that don't conflict with in-game input.
@@ -119,3 +121,7 @@ Groups child items into a nested ring. In hold mode, hovering the wedge for `Cat
 
 ### Close
 Closes the current level of the menu. In a sub-ring: navigates back to the parent ring. At root: closes the menu entirely. Place it anywhere in a `Children` array to control its wedge position. Label and icon are fully customizable.
+
+## License
+
+Licensed under the [MIT License](LICENSE).

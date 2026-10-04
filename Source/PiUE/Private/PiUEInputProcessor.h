@@ -34,16 +34,19 @@ private:
 	static int32 FindMatchingRingIndex(const FKey& PressedKey, const FInputEvent& Event, FInputChord& OutChord);
 
 	/** Gates summon. bViewportOnly=true: target viewport only. false: any editor window (text fields excluded). */
-	static bool IsViewportFocused(const FSlateApplication& SlateApp, bool bViewportOnly);
+	static bool CanSummonMenu(const FSlateApplication& SlateApp, bool bViewportOnly);
 
-	/** Returns true if the topmost normal window under the cursor is the target viewport window (level viewport in editor, PIE viewport during play). */
-	static bool IsTargetViewportTopmost(const FSlateApplication& SlateApp);
+	/** Resolves the visible level / PIE viewport under the cursor and selects it for command routing. */
+	static bool ActivateTargetViewportUnderCursor(const FSlateApplication& SlateApp);
 
 	/** Spawns the menu host window at the cursor showing the specified ring. */
 	void OpenMenu(const FSlateApplication& SlateApp, const int32 RingIndex);
 
 	/** Returns the topmost normal editor window under the cursor, or nullptr if none found. */
-	static TSharedPtr<SWindow> FindWindowUnderCursor(const FSlateApplication& SlateApp);
+	static TSharedPtr<SWindow> FindWindowUnderCursor(const FVector2D& CursorPos);
+
+	/** Checks the actual hit-tested window, including popups and modal windows. */
+	bool IsMenuWindowUnderCursor(const FVector2D& CursorPos) const;
 
 	/** Creates the canvas overlay and menu widget and attaches them to the given window. */
 	void AttachMenuOverlay(const TSharedRef<SWindow>& Window, const FVector2D& CursorScreen, int32 RingIndex);
@@ -52,7 +55,7 @@ private:
 	bool TryHandleMouseSummonDown(const FSlateApplication& SlateApp, int32 MouseRingIndex, const FKey& SummonKey);
 
 	/** Dispatches an LMB confirm or RMB navigate-back while the menu is open in tap mode. Returns whether the event was handled. */
-	bool HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FKey& Button);
+	bool HandleMenuClick(const TSharedPtr<SPiUERadialMenu>& PinnedMenu, const FPointerEvent& MouseEvent);
 
 	TWeakPtr<SWindow> OverlayWindow;
 	TSharedPtr<SWidget> MenuOverlayWidget;
